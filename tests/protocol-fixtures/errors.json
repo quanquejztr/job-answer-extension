@@ -1,0 +1,121 @@
+[
+  {
+    "code": "INVALID_REQUEST",
+    "message": "The request was not valid.",
+    "retryable": false,
+    "userAction": "Correct the input"
+  },
+  {
+    "code": "PROTOCOL_VERSION_UNSUPPORTED",
+    "message": "The protocol version is not supported.",
+    "retryable": false,
+    "userAction": "Reinstall or update the helper"
+  },
+  {
+    "code": "MESSAGE_TOO_LARGE",
+    "message": "The request is too large.",
+    "retryable": false,
+    "userAction": "Shorten the job context"
+  },
+  {
+    "code": "UNSUPPORTED_DOMAIN",
+    "message": "This site is not supported.",
+    "retryable": false,
+    "userAction": "Draft elsewhere; the tool is disabled here"
+  },
+  {
+    "code": "QUESTION_MISSING",
+    "message": "No question was selected.",
+    "retryable": false,
+    "userAction": "Select the full question and retry"
+  },
+  {
+    "code": "FIELD_NOT_FOUND",
+    "message": "No answer field was found.",
+    "retryable": false,
+    "userAction": "Click Choose field"
+  },
+  {
+    "code": "FIELD_AMBIGUOUS",
+    "message": "More than one answer field is plausible.",
+    "retryable": false,
+    "userAction": "Click Choose field"
+  },
+  {
+    "code": "FIELD_STALE",
+    "message": "The selected field is no longer valid.",
+    "retryable": false,
+    "userAction": "Select the question again"
+  },
+  {
+    "code": "FIELD_NONEMPTY",
+    "message": "The field already has text.",
+    "retryable": false,
+    "userAction": "Confirm replacement or cancel"
+  },
+  {
+    "code": "FIELD_UNSUPPORTED",
+    "message": "This editor type is not supported.",
+    "retryable": false,
+    "userAction": "Use Copy answer"
+  },
+  {
+    "code": "HELPER_UNAVAILABLE",
+    "message": "The native helper is unavailable.",
+    "retryable": true,
+    "userAction": "Run the installer, then retry"
+  },
+  {
+    "code": "PROVIDER_NOT_FOUND",
+    "message": "The provider command was not found.",
+    "retryable": false,
+    "userAction": "Install the selected provider CLI"
+  },
+  {
+    "code": "PROVIDER_NOT_AUTHENTICATED",
+    "message": "The provider is not signed in.",
+    "retryable": false,
+    "userAction": "Sign in with the CLI yourself"
+  },
+  {
+    "code": "PROVIDER_USAGE_LIMIT",
+    "message": "The provider usage limit was reached.",
+    "retryable": true,
+    "userAction": "Wait or switch provider in settings"
+  },
+  {
+    "code": "PROVIDER_TIMEOUT",
+    "message": "The provider took too long to respond.",
+    "retryable": true,
+    "userAction": "Retry"
+  },
+  {
+    "code": "PROVIDER_CANCELLED",
+    "message": "The request was cancelled.",
+    "retryable": true
+  },
+  {
+    "code": "PROVIDER_OUTPUT_INVALID",
+    "message": "The provider output was not usable.",
+    "retryable": true,
+    "userAction": "Regenerate"
+  },
+  {
+    "code": "FACT_VALIDATION_FAILED",
+    "message": "The draft was not supported by your verified facts.",
+    "retryable": true,
+    "userAction": "Regenerate or add the missing fact"
+  },
+  {
+    "code": "STORAGE_ERROR",
+    "message": "The profile could not be read or saved.",
+    "retryable": false,
+    "userAction": "Export if possible, then repair or reset"
+  },
+  {
+    "code": "INTERNAL_ERROR",
+    "message": "An internal error occurred.",
+    "retryable": false,
+    "userAction": "Restart Chrome; check diagnostics"
+  }
+]

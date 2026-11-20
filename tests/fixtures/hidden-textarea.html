@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixture: hidden textarea</title>
+  </head>
+  <body>
+    <form id="application" action="/submitted" method="post">
+      <p id="question">Why do you want to work at Acme?</p>
+      <textarea
+        id="hidden-answer"
+        name="hidden"
+        rows="4"
+        cols="60"
+        aria-label="Hidden answer"
+        style="display: none"
+      ></textarea>
+      <button id="submit" type="submit">Submit application</button>
+    </form>
+  </body>
+</html>

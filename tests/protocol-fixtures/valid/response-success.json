@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "answer": "I want to work on routing systems.",
+    "evidenceIds": ["f_3"],
+    "warnings": [
+      {
+        "code": "MODEL_NOTE",
+        "severity": "info",
+        "message": "Short note."
+      }
+    ],
+    "usedFacts": [
+      {
+        "id": "f_3",
+        "text": "Built a route optimizer in Go"
+      }
+    ]
+  }
+}

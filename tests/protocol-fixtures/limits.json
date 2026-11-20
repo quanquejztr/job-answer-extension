@@ -1,0 +1,13 @@
+{
+  "minQuestionChars": 10,
+  "maxQuestionChars": 1000,
+  "maxJobContextChars": 8000,
+  "maxNativeRequestBytes": 262144,
+  "maxNativeResponseBytes": 524288,
+  "providerTimeoutSeconds": 90,
+  "targetLifetimeSeconds": 600,
+  "minMaxWords": 20,
+  "maxMaxWords": 400,
+  "maxCurrentDraftChars": 4000,
+  "maxWarningMessageChars": 200
+}

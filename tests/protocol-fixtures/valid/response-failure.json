@@ -1,0 +1,11 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": false,
+  "error": {
+    "code": "PROVIDER_NOT_AUTHENTICATED",
+    "message": "The provider is not signed in.",
+    "retryable": false,
+    "userAction": "Sign in with the CLI yourself"
+  }
+}

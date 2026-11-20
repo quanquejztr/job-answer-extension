@@ -1,0 +1,13 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": false,
+  "result": {
+    "a": 1
+  },
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "An internal error occurred.",
+    "retryable": false
+  }
+}

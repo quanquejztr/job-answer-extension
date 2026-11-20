@@ -1,0 +1,14 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "type": "draft.generate2",
+  "payload": {
+    "question": "Why do you want to work at Acme?",
+    "jobContext": "Acme builds routing software.",
+    "constraints": {
+      "maxWords": 120
+    },
+    "requestedAt": "2026-11-19T15:04:05Z"
+  },
+  "surprise": true
+}

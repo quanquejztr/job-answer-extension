@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 1,
+  "requestId": "bad id/1",
+  "type": "helper.hello",
+  "payload": {
+    "extensionVersion": "0.1.0"
+  }
+}

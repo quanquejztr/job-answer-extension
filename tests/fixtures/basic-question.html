@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixture: basic question</title>
+  </head>
+  <body>
+    <form id="application" action="/submitted" method="post">
+      <label for="why">Why do you want to work at Acme?</label>
+      <textarea id="why" name="why" rows="6" cols="60"></textarea>
+      <button id="submit" type="submit">Submit application</button>
+    </form>
+    <script>
+      // Test-only recorder: proves nothing ever touches the button or form.
+      window.__fixtureEvents = [];
+      (function () {
+        var form = document.getElementById('application');
+        var button = document.getElementById('submit');
+        function record(type) {
+          window.__fixtureEvents.push(type);
+        }
+        ['click', 'mousedown', 'mouseup', 'keydown', 'keyup', 'focus', 'focusin'].forEach(
+          function (type) {
+            button.addEventListener(type, function () {
+              record('button:' + type);
+            });
+          },
+        );
+        form.addEventListener('submit', function (event) {
+          record('form:submit');
+          event.preventDefault();
+        });
+        form.addEventListener('formdata', function () {
+          record('form:formdata');
+        });
+        document.addEventListener(
+          'click',
+          function (event) {
+            if (
+              event.target === button ||
+              (form.contains(event.target) &&
+                event.target !== document.getElementById('why') &&
+                event.target.tagName !== 'LABEL')
+            ) {
+              record('document:click-in-form');
+            }
+          },
+          true,
+        );
+        window.addEventListener('beforeunload', function () {
+          record('navigation:beforeunload');
+        });
+        if (window.navigation) {
+          window.navigation.addEventListener('navigate', function (event) {
+            record('navigation:navigate');
+            event.preventDefault();
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

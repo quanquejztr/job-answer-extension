@@ -1,0 +1,27 @@
+node_modules/
+.output/
+.wxt/
+dist/
+coverage/
+playwright-report/
+test-results/
+helper/bin/
+*.log
+.DS_Store
+.env
+.env.*
+
+# Profile, resume, and draft data must never be committed
+profile*.json
+**/profile/*.local.*
+*.resume.*
+*resume*.pdf
+*resume*.docx
+*cv*.pdf
+*cv*.docx
+resumes/
+profiles/
+!tests/protocol-fixtures/*.json
+
+# Extension signing keys (only the public key is committed, in extension-key.ts)
+*.pem

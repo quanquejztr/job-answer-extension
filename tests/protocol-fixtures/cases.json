@@ -1,0 +1,276 @@
+[
+  {
+    "file": "valid/hello.json",
+    "direction": "request",
+    "valid": true,
+    "note": "helper.hello"
+  },
+  {
+    "file": "valid/generate-first.json",
+    "direction": "request",
+    "valid": true,
+    "note": "first draft, no refinement"
+  },
+  {
+    "file": "valid/generate-shorter.json",
+    "direction": "request",
+    "valid": true,
+    "note": "refinement shorter with currentDraft and maxChars"
+  },
+  {
+    "file": "valid/generate-regenerate-no-context.json",
+    "direction": "request",
+    "valid": true,
+    "note": "regenerate, no jobContext"
+  },
+  {
+    "file": "valid/cancel.json",
+    "direction": "request",
+    "valid": true,
+    "note": "draft.cancel"
+  },
+  {
+    "file": "valid/response-success.json",
+    "direction": "response",
+    "valid": true,
+    "note": "success with DraftResponse"
+  },
+  {
+    "file": "valid/response-failure.json",
+    "direction": "response",
+    "valid": true,
+    "note": "failure with AppError"
+  },
+  {
+    "file": "valid/response-failure-empty-id.json",
+    "direction": "response",
+    "valid": true,
+    "note": "failure for an unparseable request uses requestId empty string"
+  },
+  {
+    "file": "invalid/wrong-version.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "PROTOCOL_VERSION_UNSUPPORTED",
+    "note": "protocolVersion 2"
+  },
+  {
+    "file": "invalid/unknown-type.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown type"
+  },
+  {
+    "file": "invalid/unimplemented-profile-get.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "catalog type not yet implemented"
+  },
+  {
+    "file": "invalid/unknown-top-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown top-level field"
+  },
+  {
+    "file": "invalid/unknown-payload-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown payload field"
+  },
+  {
+    "file": "invalid/missing-request-id.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "requestId missing"
+  },
+  {
+    "file": "invalid/bad-request-id-chars.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "requestId has a space and slash"
+  },
+  {
+    "file": "invalid/request-id-too-long.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "requestId 65 chars"
+  },
+  {
+    "file": "invalid/hello-version-too-long.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "extensionVersion 33 chars"
+  },
+  {
+    "file": "invalid/cancel-bad-target.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "targetRequestId invalid"
+  },
+  {
+    "file": "invalid/question-short.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "question 9 chars after trim"
+  },
+  {
+    "file": "invalid/question-long.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "question 1001 chars"
+  },
+  {
+    "file": "invalid/job-context-long.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "jobContext 8001 chars"
+  },
+  {
+    "file": "invalid/max-words-low.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "maxWords 19"
+  },
+  {
+    "file": "invalid/max-words-high.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "maxWords 401"
+  },
+  {
+    "file": "invalid/max-words-missing.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "maxWords required"
+  },
+  {
+    "file": "invalid/max-chars-zero.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "maxChars 0"
+  },
+  {
+    "file": "invalid/shorter-without-draft.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "shorter requires currentDraft"
+  },
+  {
+    "file": "invalid/regenerate-with-draft.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "currentDraft only for shorter/direct"
+  },
+  {
+    "file": "invalid/current-draft-long.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "currentDraft 4001 chars"
+  },
+  {
+    "file": "invalid/bad-refinement.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "refinement not in enum"
+  },
+  {
+    "file": "invalid/bad-requested-at.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "requestedAt has a non-UTC offset"
+  },
+  {
+    "file": "invalid/bad-requested-at-date.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "requestedAt is not a real date"
+  },
+  {
+    "file": "invalid/response-both.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "result and error together"
+  },
+  {
+    "file": "invalid/response-neither.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "ok false with no error"
+  },
+  {
+    "file": "invalid/response-ok-with-error.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "ok true with error and no result"
+  },
+  {
+    "file": "invalid/response-ok-no-result.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "ok true with neither"
+  },
+  {
+    "file": "invalid/response-unknown-code.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "error code not in catalog"
+  },
+  {
+    "file": "invalid/response-unknown-field.json",
+    "direction": "response",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown top-level field"
+  },
+  {
+    "file": "generated/oversize-request",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "MESSAGE_TOO_LARGE",
+    "generated": "oversize-request",
+    "note": "envelope of exactly 262145 bytes (limit + 1), size checked before parsing"
+  },
+  {
+    "file": "generated/ac052-300kib",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "MESSAGE_TOO_LARGE",
+    "generated": "ac052-300kib",
+    "note": "AC-052: 300 KiB (307200 byte) body"
+  },
+  {
+    "file": "invalid/ac052-unknown-field-and-type.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "AC-052: unknown type with unknown field is rejected as a whole"
+  }
+]
