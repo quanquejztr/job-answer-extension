@@ -84,7 +84,7 @@ describe('DraftRequest', () => {
 
 describe('DraftResponse and AppError', () => {
   it('rejects bad warnings and empty answers', () => {
-    const ok = { answer: 'a', evidenceIds: [], warnings: [], usedFacts: [] };
+    const ok = { answer: 'a', evidence: [], warnings: [] };
     expect(DraftResponseSchema.safeParse(ok).success).toBe(true);
     expect(DraftResponseSchema.safeParse({ ...ok, answer: '' }).success).toBe(false);
     const warn = { code: 'MODEL_NOTE', severity: 'info', message: 'm' };
@@ -96,6 +96,38 @@ describe('DraftResponse and AppError', () => {
       DraftResponseSchema.safeParse({ ...ok, warnings: [{ ...warn, message: 'm'.repeat(201) }] })
         .success,
     ).toBe(false);
+    // The removed warning code is no longer accepted.
+    expect(
+      DraftResponseSchema.safeParse({ ...ok, warnings: [{ ...warn, code: 'LOW_FACT_SUPPORT' }] })
+        .success,
+    ).toBe(false);
+  });
+
+  it('accepts evidence quotes and rejects the removed fact fields and bad quotes', () => {
+    const quote = { source: 'resume', quote: 'Built a route optimizer in Go' };
+    const ok = { answer: 'a', evidence: [quote], warnings: [] };
+    expect(DraftResponseSchema.safeParse(ok).success).toBe(true);
+    expect(
+      DraftResponseSchema.safeParse({
+        ...ok,
+        evidence: [quote, { source: 'story:s_2', quote: 'x'.repeat(300) }],
+      }).success,
+    ).toBe(true);
+    const bad: unknown[] = [
+      { answer: 'a', evidenceIds: [], warnings: [], usedFacts: [] },
+      { answer: 'a', evidence: [], evidenceIds: [], warnings: [] },
+      { answer: 'a', evidence: [], warnings: [], usedFacts: [] },
+      { answer: 'a', warnings: [] },
+      { ...ok, evidence: [{ source: 'resume' }] },
+      { ...ok, evidence: [{ ...quote, id: 'f_1' }] },
+      { ...ok, evidence: [{ ...quote, source: 'sample:w_1' }] },
+      { ...ok, evidence: [{ ...quote, source: 'story:' }] },
+      { ...ok, evidence: [{ ...quote, source: '' }] },
+      { ...ok, evidence: [{ ...quote, quote: 'x'.repeat(11) }] },
+      { ...ok, evidence: [{ ...quote, quote: 'x'.repeat(301) }] },
+      { ...ok, evidence: Array.from({ length: 11 }, () => quote) },
+    ];
+    for (const b of bad) expect(DraftResponseSchema.safeParse(b).success).toBe(false);
   });
 
   it('AppError is strict', () => {
@@ -111,11 +143,24 @@ describe('DraftResponse and AppError', () => {
 
 describe('message registry', () => {
   it('has exactly the implemented types', () => {
-    expect([...MESSAGE_TYPES]).toEqual(['helper.hello', 'draft.generate', 'draft.cancel']);
-    for (const type of [
+    expect([...MESSAGE_TYPES]).toEqual([
+      'helper.hello',
+      'draft.generate',
+      'draft.cancel',
       'profile.get',
+      'profile.item.upsert',
+      'profile.item.delete',
+      'profile.resume.set',
+      'profile.export',
+      'profile.deleteAll',
+      'profile.import.document',
       'diagnostics.run',
       'settings.setProvider',
+      'settings.acceptDisclosure',
+    ]);
+    for (const type of [
+      'profile.import.text',
+      'settings.getProvider',
       'constructor',
       '__proto__',
     ]) {

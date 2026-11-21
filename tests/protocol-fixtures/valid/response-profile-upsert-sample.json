@@ -1,0 +1,13 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "item": {
+      "id": "w_4",
+      "label": "Sample",
+      "text": "Sample text.",
+      "createdAt": "2026-11-20T10:00:00Z"
+    }
+  }
+}

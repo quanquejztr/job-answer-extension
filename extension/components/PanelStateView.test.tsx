@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { PanelStateView as View, type PanelActions } from './PanelStateView';
+import { NO_DISCLOSURE_HINT, NO_PROVIDER_HINT, NO_RESUME_HINT } from './PanelStateView';
+import type { ProfileStatus } from '../schemas/profile-status-message';
 import { ERROR_CATALOG } from '../schemas/error';
 import type { PanelField, PanelState } from '../schemas/internal-message';
 
@@ -10,12 +12,21 @@ function actionsFake() {
     generate: vi.fn<PanelActions['generate']>(),
     insert: vi.fn<PanelActions['insert']>(),
     cancel: vi.fn<PanelActions['cancel']>(),
+    openSettings: vi.fn<PanelActions['openSettings']>(),
   };
 }
 
 /** The view with fake actions unless a test passes its own. */
-function PanelStateView({ state, actions }: { state: PanelState; actions?: PanelActions }) {
-  return <View state={state} actions={actions ?? actionsFake()} />;
+function PanelStateView({
+  state,
+  actions,
+  profileStatus,
+}: {
+  state: PanelState;
+  actions?: PanelActions;
+  profileStatus?: ProfileStatus;
+}) {
+  return <View state={state} actions={actions ?? actionsFake()} profileStatus={profileStatus} />;
 }
 
 const captured = (
@@ -154,7 +165,10 @@ const generatedState = (over: Partial<Generated> = {}): Generated =>
     captureId: 'c1',
     field: { status: 'found', label: 'Why Acme?' },
     answer: 'First line.\nSecond line.',
-    usedFactCount: 2,
+    evidence: [
+      { source: 'resume', quote: 'Built a route optimizer in Go' },
+      { source: 'story:s_2', quote: 'Led a team of three' },
+    ],
     warnings: [],
     draftId: 1,
     maxWords: 150,
@@ -206,7 +220,7 @@ describe('PanelStateView drafting states', () => {
         actions={actions}
       />,
     );
-    expect(screen.getByText(/Generating a draft/)).toBeInTheDocument();
+    expect(screen.getByText(/Generating with your provider… 0 s elapsed/)).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Question' })).toHaveAttribute('readonly');
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Cancel']);
     await user.tab();
@@ -244,14 +258,14 @@ describe('PanelStateView drafting states', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Run the installer, then retry');
   });
 
-  it('Generated shows an editable labeled Draft answer with fact count and a count against the limit', () => {
+  it('Generated shows an editable labeled Draft answer with the evidence count and a count against the limit', () => {
     render(<PanelStateView state={generatedState()} />);
     const draft = screen.getByRole('textbox', { name: 'Draft answer' });
     expect(draft.tagName).toBe('TEXTAREA');
     expect(draft).toHaveValue('First line.\nSecond line.');
     expect(draft).not.toHaveAttribute('readonly');
     expect(screen.getByText(/4 of 150 words/)).toBeInTheDocument();
-    expect(screen.getByText(/Generated draft\. Facts used: 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Generated draft\. Evidence: 2 quotes/)).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been inserted/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate again' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Insert answer' })).toBeEnabled();
@@ -262,13 +276,13 @@ describe('PanelStateView drafting states', () => {
       <PanelStateView
         state={generatedState({
           warnings: [
-            { code: 'LOW_FACT_SUPPORT', severity: 'warn', message: 'Few facts matched.' },
+            { code: 'UNSUPPORTED_CLAIM', severity: 'warn', message: 'Check a name.' },
             { code: 'MODEL_NOTE', severity: 'info', message: 'A note.' },
           ],
         })}
       />,
     );
-    expect(screen.getByText('Warning: Few facts matched.')).toBeInTheDocument();
+    expect(screen.getByText('Warning: Check a name.')).toBeInTheDocument();
     expect(screen.getByText('Note: A note.')).toBeInTheDocument();
   });
 
@@ -313,7 +327,7 @@ describe('PanelStateView review and insert', () => {
     const insert = screen.getByRole('button', { name: 'Insert answer' });
     expect(follows(screen.getByRole('textbox', { name: 'Question' }), insert)).toBe(true);
     expect(follows(screen.getByRole('textbox', { name: 'Draft answer' }), insert)).toBe(true);
-    expect(follows(screen.getByText(/Facts used: 2/), insert)).toBe(true);
+    expect(follows(screen.getByText(/Evidence: 2 quotes/), insert)).toBe(true);
     expect(follows(screen.getByText('Note: A note.'), insert)).toBe(true);
     expect(follows(screen.getByRole('button', { name: 'Generate again' }), insert)).toBe(true);
     // The last button in the panel is the one primary action.
@@ -566,8 +580,177 @@ describe('PanelStateView review and insert', () => {
     await u.tab();
     expect(screen.getByRole('textbox', { name: 'Draft answer' })).toHaveFocus();
     await u.tab();
+    expect(screen.getByText('Evidence', { selector: 'summary' })).toHaveFocus();
+    await u.tab();
     expect(screen.getByRole('button', { name: 'Generate again' })).toHaveFocus();
     await u.tab();
     expect(screen.getByRole('button', { name: 'Insert answer' })).toHaveFocus();
+  });
+});
+
+describe('Evidence list', () => {
+  it('is a collapsed details element with each source and quote, before the Insert button', async () => {
+    const u = userEvent.setup();
+    const { container } = render(<PanelStateView state={generatedState()} />);
+    const details = container.querySelector('details');
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute('open');
+    const summary = screen.getByText('Evidence', { selector: 'summary' });
+    await u.click(summary);
+    expect(details).toHaveAttribute('open');
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent);
+    expect(items).toEqual([
+      'Résumé: \u201CBuilt a route optimizer in Go\u201D',
+      'Story: \u201CLed a team of three\u201D',
+    ]);
+    const insert = screen.getByRole('button', { name: 'Insert answer' });
+    expect(
+      Boolean(summary.compareDocumentPosition(insert) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+    expect(screen.getByText(/Evidence: 2 quotes/)).toBeInTheDocument();
+  });
+
+  it('reads "1 quote" for a single quote', () => {
+    render(
+      <PanelStateView
+        state={generatedState({
+          evidence: [{ source: 'resume', quote: 'Built a route optimizer in Go' }],
+        })}
+      />,
+    );
+    expect(screen.getByText(/Evidence: 1 quote\./)).toBeInTheDocument();
+  });
+
+  it('is absent when there are no quotes, and the count still reads 0', () => {
+    const { container } = render(<PanelStateView state={generatedState({ evidence: [] })} />);
+    expect(container.querySelector('details')).toBeNull();
+    expect(screen.getByText(/Evidence: 0 quotes/)).toBeInTheDocument();
+  });
+
+  it('renders quote text as plain text, never HTML', () => {
+    const html = '<img src=x onerror="window.__pwned=1"><b>Bold</b>';
+    const { container } = render(
+      <PanelStateView state={generatedState({ evidence: [{ source: 'resume', quote: html }] })} />,
+    );
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('b')).toBeNull();
+    expect(screen.getByRole('listitem')).toHaveTextContent(html);
+  });
+
+  it('shows no story id, only the kind of source', async () => {
+    render(<PanelStateView state={generatedState()} />);
+    await userEvent.setup().click(screen.getByText('Evidence', { selector: 'summary' }));
+    expect(screen.queryByText(/s_2/)).toBeNull();
+  });
+});
+
+const READY: ProfileStatus = {
+  hasResume: true,
+  storyCount: 0,
+  provider: 'claude',
+  disclosureAccepted: true,
+};
+
+describe('drafting blockers', () => {
+  const state = captured('Why do you want to work at Acme?');
+  const hints = [NO_PROVIDER_HINT, NO_DISCLOSURE_HINT, NO_RESUME_HINT];
+
+  it('uses the PRD wording for the provider and résumé hints', () => {
+    expect(NO_PROVIDER_HINT).toBe('Choose Claude Code or Codex in settings before drafting.');
+    expect(NO_RESUME_HINT).toBe("Add your résumé in the extension's settings before drafting.");
+  });
+
+  it.each([
+    ['no provider chosen', { ...READY, provider: undefined }, NO_PROVIDER_HINT],
+    ['disclosure not accepted', { ...READY, disclosureAccepted: false }, NO_DISCLOSURE_HINT],
+    ['no résumé saved', { ...READY, hasResume: false }, NO_RESUME_HINT],
+  ] as const)(
+    'with %s it shows its hint, a settings link, and a disabled Generate',
+    async (_name, status, hint) => {
+      const actions = actionsFake();
+      render(<PanelStateView state={state} profileStatus={status} actions={actions} />);
+      expect(screen.getByText(hint)).toBeInTheDocument();
+      for (const other of hints.filter((h) => h !== hint)) {
+        expect(screen.queryByText(other)).not.toBeInTheDocument();
+      }
+      const generate = screen.getByRole('button', { name: 'Generate draft' });
+      expect(generate).toBeDisabled();
+      await userEvent.setup().click(generate);
+      expect(actions.generate).not.toHaveBeenCalled();
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Open settings' }));
+      expect(actions.openSettings).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('names the first thing to fix when several are missing', () => {
+    render(
+      <PanelStateView
+        state={state}
+        profileStatus={{
+          hasResume: false,
+          storyCount: 0,
+          disclosureAccepted: false,
+        }}
+      />,
+    );
+    expect(screen.getByText(NO_PROVIDER_HINT)).toBeInTheDocument();
+    expect(screen.queryByText(NO_DISCLOSURE_HINT)).not.toBeInTheDocument();
+    expect(screen.queryByText(NO_RESUME_HINT)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [undefined],
+    [READY],
+    [{ ...READY, storyCount: 7 }],
+    [{ ...READY, provider: 'codex' as const }],
+  ])('leaves Generate enabled with no hint when ready or unknown (%j)', (status) => {
+    render(<PanelStateView state={state} profileStatus={status} />);
+    for (const hint of hints) expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open settings' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
+  });
+
+  it('keeps the edited question and shows the typed error after a provider failure', () => {
+    const question = 'Why do you want to work at Acme? (my edited wording)';
+    render(
+      <PanelStateView
+        state={{ ...captured(question), error: 'PROVIDER_NOT_AUTHENTICATED' }}
+        profileStatus={READY}
+      />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(ERROR_CATALOG.PROVIDER_NOT_AUTHENTICATED.message);
+    expect(alert).toHaveTextContent('Next step: Sign in with the CLI yourself.');
+    expect(screen.getByRole('textbox', { name: 'Question' })).toHaveValue(question);
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
+  });
+
+  it('shows the chosen provider while generating', () => {
+    render(
+      <PanelStateView
+        state={{ ...captured('Why do you want to work at Acme?'), kind: 'generating' }}
+        profileStatus={READY}
+      />,
+    );
+    expect(screen.getByText(/Generating with Claude Code… 0 s elapsed/)).toBeInTheDocument();
+  });
+});
+
+describe('FACT_VALIDATION_FAILED', () => {
+  it('shows the catalog message and next step and keeps the edited question', () => {
+    const question = 'Why do you want to work at Acme? (my edited wording)';
+    render(
+      <PanelStateView
+        state={{ ...captured(question), error: 'FACT_VALIDATION_FAILED' }}
+        profileStatus={READY}
+      />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('The draft was not supported by your résumé and stories.');
+    expect(alert).toHaveTextContent(
+      'Next step: Regenerate, or add the missing detail to your résumé or stories.',
+    );
+    expect(screen.getByRole('textbox', { name: 'Question' })).toHaveValue(question);
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
   });
 });

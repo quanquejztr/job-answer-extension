@@ -8,6 +8,8 @@ interface Manifest {
   host_permissions?: unknown;
   optional_host_permissions?: unknown;
   permissions?: string[];
+  content_security_policy?: unknown;
+  web_accessible_resources?: unknown;
 }
 
 test('extension loads with a registered service worker and no errors', async ({
@@ -83,4 +85,8 @@ test('built manifest has no content scripts or host permissions', async () => {
     'scripting',
     'sidePanel',
   ]);
+  // PDF import (ADR 0004) must not loosen anything: the default extension-page
+  // CSP stays (so no 'wasm-unsafe-eval'), and no page or file is made web-accessible.
+  expect(manifest.content_security_policy).toBeUndefined();
+  expect(manifest.web_accessible_resources).toBeUndefined();
 });

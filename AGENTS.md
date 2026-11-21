@@ -43,7 +43,7 @@ extension/schemas/       Zod schemas for every runtime boundary
 extension/components/    presentational React components
 extension/assets/        global CSS and Tailwind tokens (outside entrypoints/ on purpose)
 helper/cmd/host/         thin native-messaging main;  helper/cmd/installer/  thin installer main
-helper/internal/         protocol/ limits/ profile/ facts/ prompt/ validate/
+helper/internal/         protocol/ limits/ profile/ prompt/ validate/
                          provider/{fake,claude,codex}/ importer/ install/
 installer/templates/     native-host manifest templates
 tests/                   fixtures/ (local HTML), e2e/ (Playwright), protocol-fixtures/ (shared JSON)
@@ -77,7 +77,7 @@ if err := validate(req); err != nil {
 }
 ```
 
-- Logs carry event names, error codes, versions, and durations only; never résumé text, facts, questions, job text, prompts, drafts, field values, or credentials.
+- Logs carry event names, error codes, versions, and durations only; never résumé text, stories, questions, job text, prompts, drafts, field values, or credentials.
 - No sleep-based waits; wait on an observable event or state with a bounded timeout.
 
 ## 4. Testing and verification rules
@@ -87,7 +87,7 @@ if err := validate(req); err != nil {
 - Mock the providers with fake `claude` and `codex` executables built from `helper/**/testdata/`; never call a real provider, a real employer page, or any network service in automated tests.
 - Protocol and limit changes update `tests/protocol-fixtures/` and both the TypeScript and Go tests.
 - Every behavior change needs tests for the success path and the relevant failure paths (ambiguity, staleness, malformed input, size limits, cancellation). Each fix gets a test that fails without it.
-- Acceptance criteria are `AC-001` to `AC-061` in `specs/06-prd.md` section 21; each is gated in one slice in `specs/07-implementation-plan.md`.
+- Acceptance criteria are `AC-001` to `AC-063` in `specs/06-prd.md` section 21; each is gated in one slice in `specs/07-implementation-plan.md`.
 - A task is finished only when `npm run check` passes (plus `npm run test:e2e` when targeting, insertion, or the extension manifest changed). If a check cannot run, say which one and why; do not claim completion.
 - Completion report: files changed, behavior, tests added, commands and results, security and privacy effects, spec or PRD changes ("PRD updated: yes/no"), known limitations.
 
@@ -97,7 +97,7 @@ if err := validate(req); err != nil {
 - Toolchain: Node 26 (`nvm use`), npm, Go 1.27 from Homebrew.
 - Providers are the user's own `claude` and `codex` CLIs, installed and signed in by the user. Authentication belongs to the CLI; do not read its files. Confirmed invocation flags live in `specs/decisions/0002-subscription-cli-providers.md` after the Slice 0.4 spike; do not guess flags.
 - Playwright's bundled Chromium is installed (`npx playwright install chromium`, already done). Ask before installing any other browser. `npm run test:e2e` rebuilds the extension, starts the test-only static fixture server (`tests/fixtures/serve.mjs`, `127.0.0.1:4310`, so that port must be free), and loads `.output/chrome-mv3` in headless Chromium (`--headless=new`; Playwright's own headless shell cannot load extensions). Never point it at real sites.
-- The profile (résumé facts, stories, samples) lives in an owner-only directory under `~/Library/Application Support/`, outside this repo, owned by the Go helper. The native-host manifest goes under `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` and allows only the pinned extension origin. Neither exists yet.
+- The profile (one résumé text, stories, samples, rules) lives in an owner-only directory under `~/Library/Application Support/`, outside this repo, owned by the Go helper. The native-host manifest goes under `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` and allows only the pinned extension origin. Neither exists yet.
 - This repo is in iCloud Drive. Never put real personal data, résumés, or profile files in it.
 
 ## 6. Hard boundaries (never do)
@@ -106,8 +106,8 @@ if err := validate(req); err != nil {
 - Never insert without a visible review and an explicit Insert action; never overwrite a nonempty field without confirmation.
 - Never run on LinkedIn or Indeed, and never automate the claude.ai or chatgpt.com web interfaces.
 - Never read, copy, store, log, or transmit provider credentials, session tokens, browser cookies, or keychain entries (including `~/.claude` and `~/.codex`). Never use `claude --bare` (it ignores subscription sign-in) or permission-bypass flags.
-- Never send the full profile to a content script, and never send more than the minimum facts and context to a provider.
-- Never invent profile facts, metrics, dates, employers, or titles; reject output that does.
+- Never send the profile to a content script, and never send a provider more than the question, bounded job context, the profile content within the 40,000 code-point cap, and writing constraints.
+- Never invent résumé or story claims, metrics, dates, employers, or titles; reject output whose evidence quotes are not exact excerpts of the résumé or a story, or whose numbers, years, percentages, or amounts appear in none of the user's text, the question, or the job context.
 - Never commit secrets, résumés, profile data, or real application content. Never run `git commit` or `git push` unless asked.
 - Never edit generated output (`.output/`, `.wxt/`, built Go binaries) or lockfiles by hand.
 - Never delete, skip, or weaken a failing test, lint rule, type check, or validation to make a check pass.

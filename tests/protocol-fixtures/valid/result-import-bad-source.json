@@ -1,0 +1,9 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "text": "Made-up text",
+    "source": "pasted"
+  }
+}

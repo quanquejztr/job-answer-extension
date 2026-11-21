@@ -1,0 +1,9 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "text": "Made-up Person\n- Built made-up things\nRésumé 東京",
+    "source": "docx"
+  }
+}

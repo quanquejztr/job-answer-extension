@@ -1,5 +1,17 @@
 import { z } from 'zod';
+import { DiagnosticsPayloadSchema } from './diagnostics';
 import { DraftRequestSchema } from './draft';
+import {
+  AcceptDisclosurePayloadSchema,
+  SetProviderPayloadSchema,
+  ItemDeletePayloadSchema,
+  ItemUpsertPayloadSchema,
+  ProfileGetPayloadSchema,
+  ProfileExportPayloadSchema,
+  ResumeSetPayloadSchema,
+  DeleteAllPayloadSchema,
+  ImportDocumentPayloadSchema,
+} from './profile';
 import { RequestIdSchema } from './request-id';
 import type { ErrorCode } from './error';
 
@@ -35,13 +47,37 @@ function request<T extends string, P extends z.ZodType>(type: T, payload: P) {
 
 // Message-type registry. Mirrors helper/internal/protocol/messages.go: only
 // types implemented now; every other PRD 17.2 name is rejected as unknown.
-export const MESSAGE_TYPES = ['helper.hello', 'draft.generate', 'draft.cancel'] as const;
+export const MESSAGE_TYPES = [
+  'helper.hello',
+  'draft.generate',
+  'draft.cancel',
+  'profile.get',
+  'profile.item.upsert',
+  'profile.item.delete',
+  'profile.resume.set',
+  'profile.export',
+  'profile.deleteAll',
+  'profile.import.document',
+  'diagnostics.run',
+  'settings.setProvider',
+  'settings.acceptDisclosure',
+] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 export const RequestEnvelopeSchema = z.discriminatedUnion('type', [
   request('helper.hello', HelloPayloadSchema),
   request('draft.generate', DraftRequestSchema),
   request('draft.cancel', CancelPayloadSchema),
+  request('profile.get', ProfileGetPayloadSchema),
+  request('profile.item.upsert', ItemUpsertPayloadSchema),
+  request('profile.item.delete', ItemDeletePayloadSchema),
+  request('profile.resume.set', ResumeSetPayloadSchema),
+  request('profile.export', ProfileExportPayloadSchema),
+  request('profile.deleteAll', DeleteAllPayloadSchema),
+  request('profile.import.document', ImportDocumentPayloadSchema),
+  request('diagnostics.run', DiagnosticsPayloadSchema),
+  request('settings.setProvider', SetProviderPayloadSchema),
+  request('settings.acceptDisclosure', AcceptDisclosurePayloadSchema),
 ]);
 export type RequestEnvelope = z.infer<typeof RequestEnvelopeSchema>;
 

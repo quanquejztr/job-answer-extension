@@ -9,5 +9,17 @@
   "minMaxWords": 20,
   "maxMaxWords": 400,
   "maxCurrentDraftChars": 4000,
-  "maxWarningMessageChars": 200
+  "maxWarningMessageChars": 200,
+  "maxStoryChars": 3000,
+  "maxSampleChars": 3000,
+  "maxRuleChars": 200,
+  "maxRules": 20,
+  "maxSamples": 5,
+  "maxTitleChars": 100,
+  "maxLabelChars": 60,
+  "maxStories": 30,
+  "maxProfileBytes": 393216,
+  "maxResumeChars": 15000,
+  "maxProfileTotalChars": 40000,
+  "maxDocxFileBytes": 194560
 }

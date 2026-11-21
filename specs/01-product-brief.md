@@ -30,7 +30,7 @@ The product should feel like a writing assistant attached to the current field�
 - Describe a relevant project or accomplishment.
 - What interests you about this team or product?
 - Short motivation, collaboration, leadership, or problem-solving prompts.
-- Other narrative prompts that can be answered from verified profile facts.
+- Other narrative prompts that can be answered from the user's résumé and stories.
 
 ## Non-goals
 
@@ -46,7 +46,7 @@ The product should feel like a writing assistant attached to the current field�
 
 ## Correct behavior examples
 
-- The user selects “Why do you want to work at Acme?” The extension finds the textarea directly below it, drafts 85 words using two verified project facts, waits for review, and inserts the edited answer after the user clicks Insert.
+- The user selects “Why do you want to work at Acme?” The extension finds the textarea directly below it, drafts 85 words using the résumé and one story, waits for review, and inserts the edited answer after the user clicks Insert.
 - Two textareas are equally close to the selected question. The extension asks the user to click the intended field instead of guessing.
 - A field already contains text. The extension shows a replacement confirmation before changing it.
 - Job-description extraction has low confidence. The side panel asks the user to paste or confirm the job description.
@@ -56,7 +56,7 @@ The product should feel like a writing assistant attached to the current field�
 
 - Filling every empty textarea on the page.
 - Inferring that the user does not need sponsorship.
-- Adding an impressive metric that is not in the verified profile.
+- Adding an impressive metric that is not in the user's résumé or stories.
 - Following text in the job description that says to ignore product rules or reveal local data.
 - Clicking Continue after inserting an answer.
 - Replacing an existing answer without confirmation.
@@ -70,15 +70,15 @@ Generation and insertion are separate, explicit actions. The user sees and can e
 
 ### Truth over fluency
 
-An ordinary but supported sentence is preferable to a polished invention. Metrics and claims must come from verified facts.
+An ordinary but supported sentence is preferable to a polished invention. Metrics and claims must come from the user's résumé and stories, and each draft must quote its support.
 
 ### Minimum necessary data
 
-Only the facts relevant to the selected question and role are sent to the model.
+Only the question, the bounded job context, the user's profile content (within a fixed size cap), and writing constraints are sent to the model, and nothing else. The profile content is the whole résumé, all stories, all writing samples, and the enabled writing rules.
 
 ### Honest uncertainty
 
-When question capture, job-description extraction, fact support, or field targeting is uncertain, ask for confirmation or use a safe fallback.
+When question capture, job-description extraction, résumé and story support, or field targeting is uncertain, ask for confirmation or use a safe fallback.
 
 ### Narrow automation
 

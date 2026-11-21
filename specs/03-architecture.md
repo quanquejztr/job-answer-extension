@@ -30,12 +30,11 @@ helper/
     host/                # Native-messaging dispatcher: reads frames, checks the caller origin, routes to handlers and the provider
     identity/            # The single Go home of the pinned extension ID and allowed origin
     limits/              # PRD section 15.1 limits (single Go source)
-    profile/             # Local profile schema, atomic store, IDs, export, delete
-    facts/               # Relevance-based fact selection
-    prompt/              # Prompt construction and golden tests
-    validate/            # Evidence, claim, length, and output validation
+    profile/             # Local profile schema (v2: résumé, stories, samples, rules), atomic store, IDs, size cap, export, delete
+    prompt/              # Prompt construction (whole profile) and golden tests
+    validate/            # Quote grounding, number/year/amount and name checks, length, and output validation
     provider/            # Provider interface; fake/, claude/, codex/ adapters
-    importer/            # Text and document extraction
+    importer/            # Résumé text extraction (pasted text, DOCX). PDF is not read here: pdf.js in the settings page extracts the text (ADR 0004)
     install/             # Manifest templates and path safety
 installer/templates/     # Native-host manifest templates
 tests/
@@ -64,11 +63,11 @@ Owns question confirmation, job-context confirmation, generation status, draft r
 
 ### Settings UI
 
-Owns profile setup, résumé-text confirmation, project stories, writing samples, writing rules, diagnostics, local export, and delete-all-data. Sensitive operations are delegated to the Go helper through a typed client.
+Owns profile setup (résumé text with an editable review box, stories, writing samples, writing rules), diagnostics, local export, and delete-all-data. Sensitive operations are delegated to the Go helper through a typed client.
 
 ### Go native helper
 
-Owns native-message framing, caller/version validation, sensitive profile storage, document extraction, relevant-fact selection, provider invocation, output validation, and typed errors. Protocol output uses stdout; sanitized diagnostics use stderr.
+Owns native-message framing, caller/version validation, sensitive profile storage, document extraction, prompt construction from the whole profile, provider invocation, grounding and output validation, and typed errors. Protocol output uses stdout; sanitized diagnostics use stderr.
 
 ### Provider boundary
 
@@ -85,9 +84,9 @@ Owns installation of the Go binary and the Chrome native-host manifest in user-s
 3. The content script returns question text, bounded page context, and a short-lived `FieldTarget`; it does not return the entire page.
 4. The side panel displays the captured information for correction.
 5. The side panel sends a versioned `DraftRequest` through the service worker to the native helper.
-6. The helper loads the local profile, chooses relevant facts, builds an isolated prompt, and invokes the provider.
-7. The helper validates the provider response and returns `DraftResponse`.
-8. The side panel displays the draft and warnings. Edits remain in extension memory unless the user explicitly saves a writing example.
+6. The helper loads the local profile, builds an isolated prompt containing the question, bounded job context, the whole profile content (within the 40,000 code-point cap), and constraints, and invokes the provider.
+7. The helper validates the provider response (quote grounding, number checks, length) and returns `DraftResponse` with the verified evidence quotes.
+8. The side panel displays the draft, the evidence quotes, and warnings. Edits remain in extension memory unless the user explicitly saves a writing example.
 9. On Insert, the service worker sends the approved answer and target ID to the originating content script.
 10. The content script revalidates the target, requests confirmation if nonempty, writes the answer, dispatches required events, and verifies persistence.
 

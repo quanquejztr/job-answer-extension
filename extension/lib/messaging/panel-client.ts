@@ -7,6 +7,11 @@ import {
   PanelStateGetSchema,
   type PanelState,
 } from '../../schemas/internal-message';
+import {
+  ProfileStatusGetSchema,
+  ProfileStatusReplySchema,
+  type ProfileStatus,
+} from '../../schemas/profile-status-message';
 import { newRequestId } from '../native/request-id';
 import { parseStateMessage, type Sender } from './panel-messages';
 
@@ -26,6 +31,13 @@ export interface PanelClient {
   cancelDraft(tabId: number): Promise<void>;
   /** The explicit Insert action with the reviewed (possibly edited) answer. Outcome arrives as state pushes. */
   startInsert(tabId: number, captureId: string, answer: string): Promise<void>;
+  /**
+   * Whether a résumé is saved and how many stories exist, or undefined when
+   * unknown (the helper or worker did not answer). Never the profile itself.
+   */
+  getProfileStatus(): Promise<ProfileStatus | undefined>;
+  /** Opens the settings page (the browser's own options page). */
+  openSettings(): Promise<void>;
   /** Fires when the active tab (or the focused window's active tab) changes. */
   onActiveTabChange(listener: () => void): () => void;
 }
@@ -38,6 +50,8 @@ export interface PanelApi {
   addActiveTabListener(listener: () => void): () => void;
   /** Holds a port open for the panel's lifetime; the worker cancels drafts when it closes. */
   openSessionPort?(): void;
+  /** Opens the extension's options page. */
+  openOptionsPage(): Promise<void>;
 }
 
 export function createPanelClient(api: PanelApi): PanelClient {
@@ -79,6 +93,29 @@ export function createPanelClient(api: PanelApi): PanelClient {
         payload: { tabId },
       });
       return message.success ? send(message.data) : Promise.resolve();
+    },
+    async getProfileStatus() {
+      const request = ProfileStatusGetSchema.parse({
+        v: 1,
+        requestId: newRequestId(),
+        type: 'panel.profileStatus.get',
+        payload: {},
+      });
+      try {
+        const reply = ProfileStatusReplySchema.safeParse(await api.sendMessage(request));
+        if (!reply.success || reply.data.requestId !== request.requestId || !reply.data.ok)
+          return undefined;
+        return reply.data.result;
+      } catch {
+        return undefined;
+      }
+    },
+    async openSettings() {
+      try {
+        await api.openOptionsPage();
+      } catch {
+        // The browser refused to open the page; the hint text still names settings.
+      }
     },
     getActiveTabId: () => api.queryActiveTabId(),
     async fetchState(tabId) {
@@ -133,6 +170,7 @@ export function createBrowserPanelClient(): PanelClient {
     openSessionPort() {
       browser.runtime.connect({ name: SESSION_PORT_NAME });
     },
+    openOptionsPage: () => browser.runtime.openOptionsPage(),
     addActiveTabListener(listener) {
       browser.tabs.onActivated.addListener(listener);
       browser.windows.onFocusChanged.addListener(listener);

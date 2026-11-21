@@ -24,7 +24,7 @@ These rules apply to every change.
 
 - Validate every browser, native-message, storage, document, and provider boundary.
 - Use explicit typed errors rather than booleans or ambiguous strings.
-- Fail closed when identity, origin, field target, fact support, or permissions are uncertain.
+- Fail closed when identity, origin, field target, résumé and story support, or permissions are uncertain.
 - Keep user-facing errors actionable and internal diagnostics sanitized.
 
 ## Documentation

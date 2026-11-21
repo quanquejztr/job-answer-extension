@@ -1,0 +1,44 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "schemaVersion": 2,
+    "nextId": 5,
+    "settings": {
+      "provider": "claude",
+      "disclosureAcceptedAt": "2026-11-20T10:00:00Z"
+    },
+    "resume": {
+      "text": "Made-up résumé text.",
+      "source": "pasted",
+      "updatedAt": "2026-11-20T10:00:00Z"
+    },
+    "stories": [
+      {
+        "id": "s_2",
+        "title": "Made-up story",
+        "text": "Story text.",
+        "createdAt": "2026-11-20T10:00:00Z",
+        "updatedAt": "2026-11-20T10:00:00Z",
+        "factIds": ["f_1"]
+      }
+    ],
+    "samples": [
+      {
+        "id": "w_3",
+        "label": "Sample",
+        "text": "Sample text.",
+        "createdAt": "2026-11-20T10:00:00Z"
+      }
+    ],
+    "rules": [
+      {
+        "id": "r_4",
+        "kind": "tone",
+        "text": "Plain.",
+        "enabled": true
+      }
+    ]
+  }
+}

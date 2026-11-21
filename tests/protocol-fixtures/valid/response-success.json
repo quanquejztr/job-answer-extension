@@ -4,18 +4,17 @@
   "ok": true,
   "result": {
     "answer": "I want to work on routing systems.",
-    "evidenceIds": ["f_3"],
+    "evidence": [
+      {
+        "source": "resume",
+        "quote": "Built a route optimizer in Go"
+      }
+    ],
     "warnings": [
       {
         "code": "MODEL_NOTE",
         "severity": "info",
         "message": "Short note."
-      }
-    ],
-    "usedFacts": [
-      {
-        "id": "f_3",
-        "text": "Built a route optimizer in Go"
       }
     ]
   }

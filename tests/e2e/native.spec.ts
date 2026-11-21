@@ -1,77 +1,26 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import type { BrowserContext, Page, Worker } from '@playwright/test';
 import { EXTENSION_ORIGIN } from '../../extension/lib/constants/extension-key';
-import { FIXTURE_ORIGIN, builtHostPath, expect, test } from './fixtures';
+import { builtHostPath, expect, test } from './fixtures';
+import {
+  DRAFT_PREFIX,
+  QUESTION,
+  RESUME,
+  STORY_BIKES,
+  STORY_CELLO,
+  addStory,
+  chooseProviderAndAccept,
+  openPanel,
+  pushCaptured,
+  realDataDirNames,
+  saveResume,
+} from './panel-helpers';
 
 // Real native-messaging round trips. The host binary is built from helper/ into
 // a temp directory and registered in the throwaway profile's own
 // NativeMessagingHosts directory; the real Chrome directory is never touched.
-
-const QUESTION = 'Why do you want to work at Acme?';
-// helper/internal/provider/fake: FakeProvider answer (fixed text).
-const FAKE_ANSWER =
-  'Deterministic sample draft from the fake provider. Replace this text with your own words before using it.';
-
-interface PanelContext {
-  panel: Page;
-  tabId: number;
-}
-
-async function openPanel(
-  context: BrowserContext,
-  extensionId: string,
-  serviceWorker: Worker,
-): Promise<PanelContext> {
-  const fixture = await context.newPage();
-  await fixture.goto(`${FIXTURE_ORIGIN}/basic-question.html`);
-  const panel = await context.newPage();
-  await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-  await expect(panel.getByText('Select a question on the page')).toBeVisible();
-  await fixture.bringToFront();
-  const tabId = await serviceWorker.evaluate(async () => {
-    const chromeApi = (
-      globalThis as unknown as {
-        chrome: { tabs: { query(q: object): Promise<{ id?: number }[]> } };
-      }
-    ).chrome;
-    const [tab] = await chromeApi.tabs.query({ active: true, currentWindow: true });
-    return tab?.id ?? -1;
-  });
-  expect(tabId).toBeGreaterThanOrEqual(0);
-  return { panel, tabId };
-}
-
-/** Shows a captured question in the panel, as the worker's capture flow would. */
-async function pushCaptured(worker: Worker, tabId: number): Promise<void> {
-  await worker.evaluate(
-    async ({ tabId: id, question }) => {
-      const chromeApi = (
-        globalThis as unknown as {
-          chrome: { runtime: { sendMessage(m: object): Promise<unknown> } };
-        }
-      ).chrome;
-      await chromeApi.runtime
-        .sendMessage({
-          v: 1,
-          requestId: crypto.randomUUID(),
-          type: 'panel.state',
-          payload: {
-            tabId: id,
-            state: {
-              kind: 'captured',
-              question,
-              source: 'menu-selection',
-              captureId: 'cap-1',
-              field: { status: 'not-found' },
-            },
-          },
-        })
-        .catch(() => undefined);
-    },
-    { tabId, question: QUESTION },
-  );
-}
+// Drafting runs the production Claude provider against a fake `claude`
+// executable (see fixtures.ts), never the real one.
 
 test.describe('with the host registered for the test profile', () => {
   test('helper.hello over a real native port returns the helper and protocol version', async ({
@@ -120,27 +69,39 @@ test.describe('with the host registered for the test profile', () => {
     });
   });
 
-  test('Generate draft goes through the real worker, client, and helper and shows the fixed answer', async ({
+  test('Generate draft goes through the real worker, client, and helper and shows a draft built from the saved résumé', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
+    const setup = await context.newPage();
+    await chooseProviderAndAccept(setup, extensionId);
+    await saveResume(setup, extensionId, RESUME);
+    await addStory(setup, extensionId, STORY_CELLO);
+    await setup.close();
     const { panel, tabId } = await openPanel(context, extensionId, serviceWorker);
     await pushCaptured(serviceWorker, tabId);
     const box = panel.getByRole('textbox', { name: 'Question' });
     await expect(box).toHaveValue(QUESTION);
     await box.fill(`${QUESTION} Keep it short.`);
     await panel.getByRole('button', { name: 'Generate draft' }).click();
-    await expect(panel.getByRole('textbox', { name: 'Draft answer' })).toHaveValue(FAKE_ANSWER);
-    await expect(panel.getByText(/Facts used: 2/)).toBeVisible();
+    const draft = panel.getByRole('textbox', { name: 'Draft answer' });
+    await expect(draft).toHaveValue(new RegExp(`^${DRAFT_PREFIX} ${RESUME.replace(/\./g, '\\.')}`));
+    const generated = await draft.inputValue();
+    expect(generated).not.toContain('cello');
+    // The verified evidence quotes are listed as text, résumé first, then the story.
+    await expect(panel.getByText(/Evidence: 2 quotes\./)).toBeVisible();
+    await panel.getByText('Evidence', { exact: true }).click();
+    const quotes = panel.getByRole('listitem');
+    await expect(quotes).toHaveCount(2);
+    await expect(quotes.nth(0)).toHaveText(`Résumé: \u201C${RESUME}\u201D`);
+    await expect(quotes.nth(1)).toHaveText(`Story: \u201C${STORY_CELLO}\u201D`);
     // The edited question survived the round trip, and nothing is inserted.
     await expect(box).toHaveValue(`${QUESTION} Keep it short.`);
     await expect(panel.getByRole('alert')).toHaveCount(0);
     // The draft is editable text; with no detected field (this test never ran a
     // capture) Insert is disabled with a visible reason and Generating never inserted.
-    const draft = panel.getByRole('textbox', { name: 'Draft answer' });
-    await expect(draft).toHaveValue(FAKE_ANSWER);
-    await expect(panel.getByText('17 of 150 words')).toBeVisible();
+    await expect(panel.getByText(/\d+ of 150 words/)).toBeVisible();
     const insert = panel.getByRole('button', { name: 'Insert answer' });
     await expect(insert).toBeDisabled();
     await expect(panel.getByText('Insert needs exactly one detected answer field.')).toBeVisible();
@@ -149,7 +110,101 @@ test.describe('with the host registered for the test profile', () => {
     // A second draft works (a new port and helper process per request) and
     // replaces the edit with the new generated text.
     await panel.getByRole('button', { name: 'Generate again' }).click();
-    await expect(draft).toHaveValue(FAKE_ANSWER);
+    await expect(draft).toHaveValue(generated);
+  });
+
+  test('the panel shows the draft and nothing else from the profile', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const before = await realDataDirNames();
+    const setup = await context.newPage();
+    await chooseProviderAndAccept(setup, extensionId);
+    await saveResume(setup, extensionId, RESUME);
+    await addStory(setup, extensionId, STORY_CELLO);
+    await addStory(setup, extensionId, STORY_BIKES);
+    await setup.close();
+    const { panel, tabId } = await openPanel(context, extensionId, serviceWorker);
+    await pushCaptured(serviceWorker, tabId, 'Describe your experience building compilers.');
+    await panel.getByRole('button', { name: 'Generate draft' }).click();
+    const draft = panel.getByRole('textbox', { name: 'Draft answer' });
+    await expect(draft).toHaveValue(/^Deterministic sample draft based on your saved resume:/);
+    const everything = await panel.locator('body').innerText();
+    const fields = await panel
+      .locator('textarea')
+      .evaluateAll((els) => els.map((el) => (el as HTMLTextAreaElement).value).join('\n'));
+    // Only the quotes the helper cited (résumé start, first story start) may
+    // appear; the second story is sent to the provider but never shown.
+    await panel.getByText('Evidence', { exact: true }).click();
+    await expect(panel.getByRole('listitem')).toHaveCount(2);
+    for (const other of ['bicycles', 'garage', 'winters']) {
+      expect(everything.toLowerCase()).not.toContain(other);
+      expect(fields.toLowerCase()).not.toContain(other);
+    }
+    expect(await realDataDirNames()).toEqual(before);
+  });
+
+  test('with no résumé the panel shows the hint and Generate draft is disabled until one is saved', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    const setup = await context.newPage();
+    await chooseProviderAndAccept(setup, extensionId);
+    await setup.close();
+    const { panel, tabId } = await openPanel(context, extensionId, serviceWorker);
+    await pushCaptured(serviceWorker, tabId);
+    await expect(
+      panel.getByText("Add your résumé in the extension's settings before drafting."),
+    ).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Generate draft' })).toBeDisabled();
+    // A story alone does not enable drafting (the story is added straight to
+    // the helper, so the active tab stays put).
+    const send = (payload: object, requestId: string, type: string) =>
+      panel.evaluate(
+        ({ payload: p, requestId: id, type: t }) =>
+          new Promise<{ ok?: boolean }>((resolve) => {
+            const chromeApi = (
+              globalThis as unknown as {
+                chrome: {
+                  runtime: {
+                    connectNative(name: string): {
+                      postMessage(m: object): void;
+                      disconnect(): void;
+                      onMessage: { addListener(l: (m: unknown) => void): void };
+                    };
+                  };
+                };
+              }
+            ).chrome;
+            const port = chromeApi.runtime.connectNative('com.jobanswerdrafter.host');
+            port.onMessage.addListener((m) => {
+              port.disconnect();
+              resolve(m as { ok?: boolean });
+            });
+            port.postMessage({ protocolVersion: 1, requestId: id, type: t, payload: p });
+          }),
+        { payload, requestId, type },
+      );
+    const storyReply = await send(
+      { kind: 'story', item: { title: 'Made-up', text: STORY_CELLO } },
+      'add-story-e2e',
+      'profile.item.upsert',
+    );
+    expect(storyReply.ok).toBe(true);
+    await panel.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(panel.getByRole('button', { name: 'Generate draft' })).toBeDisabled();
+    // The résumé is saved and the panel regains focus, as the real side panel
+    // does when the user clicks back into it after saving in settings.
+    const resumeReply = await send(
+      { text: RESUME, source: 'pasted' },
+      'add-resume-e2e',
+      'profile.resume.set',
+    );
+    expect(resumeReply.ok).toBe(true);
+    await panel.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(panel.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
   });
 });
 

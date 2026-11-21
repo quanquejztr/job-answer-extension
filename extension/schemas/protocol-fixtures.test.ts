@@ -1,10 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { MAX_DOCX_FILE_BYTES } from '../lib/constants/limits';
 import { checkRequestSize } from '../lib/native/request-size';
 import { parseResponse } from '../lib/native/parse-response';
 import { DraftResponseSchema } from './draft';
+import { DiagnosticsResultSchema } from './diagnostics';
 import { ERROR_CATALOG, ERROR_CODES, appErrorFor } from './error';
 import { parseRequest } from './messages';
+import {
+  DeleteResultSchema,
+  ExportResultSchema,
+  ImportResultSchema,
+  ProfileSchema,
+  ResumeResultSchema,
+  UPSERT_RESULT_SCHEMAS,
+} from './profile';
 
 const dir = resolve(process.cwd(), 'tests/protocol-fixtures');
 
@@ -14,12 +24,18 @@ type Case = {
   valid: boolean;
   errorCode?: string;
   generated?: string;
+  resultType?: string;
+  resultValid?: boolean;
   note: string;
 };
 
 const cases = JSON.parse(readFileSync(resolve(dir, 'cases.json'), 'utf8')) as Case[];
 
 function generatedBody(kind: string): string {
+  if (kind === 'docx-over-cap' || kind === 'docx-at-cap') {
+    const n = MAX_DOCX_FILE_BYTES + (kind === 'docx-over-cap' ? 1 : 0);
+    return `{"protocolVersion":1,"requestId":"gen-1","type":"profile.import.document","payload":{"bytesBase64":"${btoa('x'.repeat(n))}"}}`;
+  }
   const sizes: Record<string, number> = {
     'oversize-request': 256 * 1024 + 1,
     'ac052-300kib': 300 * 1024,
@@ -73,5 +89,40 @@ describe('shared protocol fixtures', () => {
     const r = parseResponse(raw);
     expect(r.kind).toBe('success');
     if (r.kind === 'success') expect(DraftResponseSchema.safeParse(r.result).success).toBe(true);
+  });
+});
+
+// The profile result fixtures: the Go runtime reads the same cases and checks them
+// against its own types (helper/internal/host/profile_fixtures_test.go).
+const RESULT_SCHEMAS: Record<string, { safeParse(v: unknown): { success: boolean } }> = {
+  profile: ProfileSchema,
+  diagnostics: DiagnosticsResultSchema,
+  export: ExportResultSchema,
+  deleted: DeleteResultSchema,
+  resume: ResumeResultSchema,
+  imported: ImportResultSchema,
+  'item:story': UPSERT_RESULT_SCHEMAS.story,
+  'item:sample': UPSERT_RESULT_SCHEMAS.sample,
+  'item:rule': UPSERT_RESULT_SCHEMAS.rule,
+};
+
+describe('shared protocol fixtures: profile results', () => {
+  const resultCases = cases.filter((c) => c.resultType !== undefined);
+
+  it('has result cases for every shape, valid and invalid', () => {
+    expect(resultCases.length).toBeGreaterThanOrEqual(20);
+    expect(new Set(resultCases.map((c) => c.resultType))).toEqual(
+      new Set(Object.keys(RESULT_SCHEMAS)),
+    );
+    expect(resultCases.some((c) => c.resultValid === false)).toBe(true);
+  });
+
+  it.each(resultCases)('$file: $note', (c) => {
+    const raw: unknown = JSON.parse(readFileSync(resolve(dir, c.file), 'utf8'));
+    const r = parseResponse(raw);
+    expect(r.kind).toBe('success');
+    if (r.kind !== 'success' || c.resultType === undefined) return;
+    const schema = RESULT_SCHEMAS[c.resultType];
+    expect(schema?.safeParse(r.result).success).toBe(c.resultValid);
   });
 });

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { App } from './App';
 import type { PanelClient } from '../../lib/messaging/panel-client';
+import type { ProfileStatus } from '../../schemas/profile-status-message';
 import type { PanelState } from '../../schemas/internal-message';
 
 const EMPTY_TEXT = 'Select a question on the page, then choose Draft answer.';
@@ -12,7 +13,15 @@ const EMPTY: PanelState = { kind: 'empty' };
 function fakeClient(initial: Record<number, PanelState> = {}, activeTab: number | null = 1) {
   let onState: (tabId: number, state: PanelState) => void = () => undefined;
   let onTab: () => void = () => undefined;
-  const state = { activeTab, states: initial };
+  const state: {
+    activeTab: number | null;
+    states: Record<number, PanelState>;
+    profileStatus: ProfileStatus | undefined;
+  } = {
+    activeTab,
+    states: initial,
+    profileStatus: undefined,
+  };
   const calls: unknown[][] = [];
   const client: PanelClient = {
     getActiveTabId: () => Promise.resolve(state.activeTab ?? undefined),
@@ -33,8 +42,13 @@ function fakeClient(initial: Record<number, PanelState> = {}, activeTab: number 
       calls.push(['cancel', tabId]);
       return Promise.resolve();
     },
+    getProfileStatus: () => Promise.resolve(state.profileStatus),
     startInsert: (tabId, captureId, answer) => {
       calls.push(['insert', tabId, captureId, answer]);
+      return Promise.resolve();
+    },
+    openSettings: () => {
+      calls.push(['openSettings']);
       return Promise.resolve();
     },
   };
@@ -165,7 +179,7 @@ describe('side panel draft actions', () => {
       ...capturedState('Why do you want to work at Acme?'),
       kind: 'generated',
       answer: 'Done.',
-      usedFactCount: 1,
+      evidence: [{ source: 'resume', quote: 'Built a route optimizer in Go' }],
       warnings: [],
       draftId: 1,
       maxWords: 150,
@@ -186,7 +200,7 @@ describe('side panel draft actions', () => {
           ...capturedState('Why do you want to work at Acme?'),
           kind: 'generated',
           answer: 'Done.',
-          usedFactCount: 1,
+          evidence: [{ source: 'resume', quote: 'Built a route optimizer in Go' }],
           warnings: [],
           draftId: 1,
           maxWords: 150,
@@ -209,11 +223,99 @@ describe('side panel draft actions', () => {
       ...capturedState('Why do you want to work at Acme?'),
       kind: 'generated',
       answer: 'Secret other-tab answer.',
-      usedFactCount: 0,
+      evidence: [],
       warnings: [],
       draftId: 1,
       maxWords: 150,
     });
     expect(screen.queryByDisplayValue('Secret other-tab answer.')).not.toBeInTheDocument();
+  });
+});
+
+describe('side panel profile status', () => {
+  const question = 'Why do you want to work at Acme?';
+  const HINT = "Add your résumé in the extension's settings before drafting.";
+  const READY: ProfileStatus = {
+    hasResume: true,
+    storyCount: 0,
+    provider: 'claude',
+    disclosureAccepted: true,
+  };
+
+  it('shows the hint and disables Generate draft when the worker reports no résumé', async () => {
+    const f = fakeClient({ 1: capturedState(question) });
+    f.state.profileStatus = { ...READY, hasResume: false };
+    render(<App client={f.client} />);
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeDisabled();
+  });
+
+  it('keeps Generate enabled when the status is unavailable or everything is set', async () => {
+    for (const n of [undefined, { ...READY, storyCount: 2 }]) {
+      const f = fakeClient({ 1: capturedState(question) });
+      f.state.profileStatus = n;
+      const { unmount } = render(<App client={f.client} />);
+      await screen.findByRole('textbox', { name: 'Question' });
+      expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
+      expect(screen.queryByText(HINT)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('asks again when the panel regains focus, so a résumé saved in settings is noticed', async () => {
+    const f = fakeClient({ 1: capturedState(question) });
+    f.state.profileStatus = { ...READY, hasResume: false };
+    render(<App client={f.client} />);
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+    f.state.profileStatus = READY;
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(screen.queryByText(HINT)).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled();
+  });
+
+  it('blocks drafting until a provider is chosen and the disclosure accepted, with a settings link', async () => {
+    const user = userEvent.setup();
+    const f = fakeClient({ 1: capturedState(question) });
+    f.state.profileStatus = { hasResume: true, storyCount: 0, disclosureAccepted: false };
+    render(<App client={f.client} />);
+    expect(
+      await screen.findByText('Choose Claude Code or Codex in settings before drafting.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Open settings' }));
+    expect(f.calls).toContainEqual(['openSettings']);
+
+    f.state.profileStatus = { ...READY, disclosureAccepted: false };
+    window.dispatchEvent(new Event('focus'));
+    expect(
+      await screen.findByText(
+        'Read and accept the first-use disclosure in settings before drafting.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate draft' })).toBeDisabled();
+
+    f.state.profileStatus = READY;
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Generate draft' })).toBeEnabled(),
+    );
+    expect(screen.queryByRole('button', { name: 'Open settings' })).not.toBeInTheDocument();
+  });
+
+  it('shows the evidence quotes of a generated draft', async () => {
+    const f = fakeClient({
+      1: {
+        ...capturedState(question),
+        kind: 'generated',
+        answer: 'Done.',
+        evidence: [{ source: 'resume', quote: 'Ran the build system for a year' }],
+        warnings: [],
+        draftId: 1,
+        maxWords: 150,
+      },
+    });
+    render(<App client={f.client} />);
+    expect(await screen.findByText(/Evidence: 1 quote\./)).toBeInTheDocument();
+    expect(screen.getByText('Evidence', { selector: 'summary' })).toBeInTheDocument();
   });
 });

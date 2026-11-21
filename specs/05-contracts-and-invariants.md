@@ -34,16 +34,6 @@ Requirements:
 ## Core types
 
 ```ts
-type ProfileFact = {
-  id: string; // 'f_' + counter value, never reused
-  text: string; // 1-500 characters
-  source: 'resume' | 'story' | 'user';
-  verified: true;
-  tags: string[]; // 0-5, lowercase
-  createdAt: string;
-  updatedAt: string;
-};
-
 type FieldTarget = {
   id: string;
   tabId: number;
@@ -71,16 +61,20 @@ type DraftConstraints = {
 };
 
 type DraftWarning = {
-  code: 'UNSUPPORTED_CLAIM' | 'LOW_FACT_SUPPORT' | 'TRUNCATED_CONTEXT' | 'MODEL_NOTE';
+  code: 'UNSUPPORTED_CLAIM' | 'TRUNCATED_CONTEXT' | 'MODEL_NOTE';
   severity: 'info' | 'warn';
   message: string; // at most 200 characters, plain text
 };
 
+type EvidenceQuote = {
+  source: string; // 'resume' or 'story:<id>'; samples and rules are never evidence
+  quote: string; // 12-300 code points, an exact excerpt of the source after whitespace collapsing
+};
+
 type DraftResponse = {
   answer: string;
-  evidenceIds: string[];
+  evidence: EvidenceQuote[]; // at least one; verified by the helper before it is returned
   warnings: DraftWarning[];
-  usedFacts: { id: string; text: string }[]; // supplied by the helper, not the model
 };
 
 type FieldFingerprint = {
@@ -105,7 +99,7 @@ type AppError = {
 };
 ```
 
-The helper selects relevant facts after receiving `DraftRequest`; the extension does not transmit the full profile with each request. The complete limits, profile file schema, message catalog, and error table are in `06-prd.md` sections 15-17; the definitions above must stay identical to them.
+The helper loads the profile after receiving `DraftRequest` and sends the whole profile content (within the 40,000 code-point cap) to the provider; the extension does not transmit the profile with the request, and the profile never reaches a content script. The profile removed `ProfileFact` in [ADR 0003](decisions/0003-resume-and-stories-profile.md): it holds one résumé text, stories, samples, and rules (`06-prd.md` section 16.1). The complete limits, profile file schema, message catalog, and error table are in `06-prd.md` sections 15-17; the definitions above must stay identical to them.
 
 ## Field-target lifecycle
 
@@ -144,7 +138,7 @@ At minimum, support distinct codes for:
 - `PROVIDER_TIMEOUT`
 - `PROVIDER_CANCELLED`
 - `PROVIDER_OUTPUT_INVALID`
-- `FACT_VALIDATION_FAILED`
+- `FACT_VALIDATION_FAILED` (a draft not supported by the user's résumé and stories: an invalid evidence quote, no valid quote, or an unsupported number, year, percentage, or amount)
 - `STORAGE_ERROR`
 - `INTERNAL_ERROR`
 
@@ -159,10 +153,10 @@ Errors shown to users are actionable and sanitized. Internal errors never includ
 5. The extension never activates navigation, save, apply, or submit controls.
 6. Structured, eligibility, demographic, compensation, consent, and legal fields are outside the product boundary.
 7. Page text and model output are untrusted data, never executable instructions or HTML.
-8. Only verified facts may support factual claims; every returned evidence ID must exist in the selected fact set.
-9. Metrics, dates, employers, titles, and technologies not supported by verified facts are rejected.
+8. Factual claims may be supported only by the user's résumé and stories, and every accepted draft carries at least one evidence quote verified as an exact excerpt of the cited source.
+9. Numbers, years, percentages, and amounts not present in the user's text, the question, or the job context are rejected, and unsupported names are warned.
 10. The full profile remains in the helper and never reaches a content script.
-11. Only the minimum relevant facts and job context are sent to the provider.
+11. Only the question, bounded job context, the user's profile content within the cap, and writing constraints are sent to the provider.
 12. Provider (Claude or ChatGPT) credentials and session tokens are never read, stored, logged, or transported.
 13. Provider tools, MCP servers, hooks, skills, and session persistence are disabled for drafting.
 14. LinkedIn and Indeed are unsupported domains.

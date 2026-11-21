@@ -116,7 +116,7 @@ func TestResponseBuilders(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := json.Marshal(env)
-	if !strings.Contains(string(body), `"evidenceIds":[]`) || strings.Contains(string(body), `"error"`) {
+	if !strings.Contains(string(body), `"evidence":[]`) || strings.Contains(string(body), `"error"`) {
 		t.Fatalf("body: %s", body)
 	}
 	parsed, err := ParseResponse(body)
@@ -210,10 +210,10 @@ func TestErrorsNeverContainInput(t *testing.T) {
 
 func TestRegistryOnlyImplementedTypes(t *testing.T) {
 	got := RegisteredTypes()
-	if len(got) != 3 || len(payloadValidators) != 3 {
+	if len(got) != 13 || len(payloadValidators) != 13 {
 		t.Fatalf("registry: %v", got)
 	}
-	for _, name := range []string{"diagnostics.run", "profile.get", "profile.item.upsert", "profile.item.delete", "profile.import.text", "profile.import.document", "profile.export", "profile.deleteAll", "settings.setProvider"} {
+	for _, name := range []string{"profile.import.text", "settings.getProvider"} {
 		body := `{"protocolVersion":1,"requestId":"r1","type":"` + name + `","payload":{}}`
 		if _, err := ParseRequest([]byte(body)); !errors.Is(err, ErrUnknownType) {
 			t.Errorf("%s: %v", name, err)
@@ -260,5 +260,67 @@ func TestBuildCodeErrorResponse(t *testing.T) {
 	}
 	if BuildCodeErrorResponse("abc", "NOPE").Error.Code != CodeInternalError {
 		t.Fatal("unknown code must become INTERNAL_ERROR")
+	}
+}
+
+func TestParseDraftResponseEvidenceShape(t *testing.T) {
+	good := `{"answer":"a","evidence":[{"source":"resume","quote":"some quote text"}],"warnings":[]}`
+	d, err := ParseDraftResponse(json.RawMessage(good))
+	if err != nil || len(d.Evidence) != 1 || d.Evidence[0].Source != "resume" || d.Evidence[0].Quote != "some quote text" {
+		t.Fatalf("good: %+v %v", d, err)
+	}
+	bad := []string{
+		`{"answer":"a","evidenceIds":[],"warnings":[],"usedFacts":[]}`,
+		`{"answer":"a","evidence":[],"warnings":[],"usedFacts":[]}`,
+		`{"answer":"a","warnings":[]}`,
+		`{"answer":"a","evidence":["x"],"warnings":[]}`,
+		`{"answer":"a","evidence":[{"source":"resume"}],"warnings":[]}`,
+		`{"answer":"a","evidence":[{"source":"resume","quote":"q","id":"f_1"}],"warnings":[]}`,
+		`{"answer":"a","evidence":[{"source":1,"quote":"q"}],"warnings":[]}`,
+		`{"answer":"a","evidence":[],"warnings":[{"code":"LOW_FACT_SUPPORT","severity":"info","message":"m"}]}`,
+	}
+	for _, b := range bad {
+		if _, err := ParseDraftResponse(json.RawMessage(b)); err == nil {
+			t.Errorf("accepted %s", b)
+		}
+	}
+}
+
+func TestDiagnosticsRunPayload(t *testing.T) {
+	ok := `{"protocolVersion":1,"requestId":"r1","type":"diagnostics.run","payload":{}}`
+	if _, err := ParseRequest([]byte(ok)); err != nil {
+		t.Fatalf("empty payload: %v", err)
+	}
+	for _, payload := range []string{`{"provider":"claude"}`, `[]`, `null`, `"x"`} {
+		body := `{"protocolVersion":1,"requestId":"r1","type":"diagnostics.run","payload":` + payload + `}`
+		if _, err := ParseRequest([]byte(body)); err == nil {
+			t.Errorf("payload %s accepted", payload)
+		}
+	}
+}
+
+func TestSettingsPayloads(t *testing.T) {
+	good := []string{
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":{"provider":"claude"}}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":{"provider":"codex"}}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.acceptDisclosure","payload":{}}`,
+	}
+	for _, body := range good {
+		if _, err := ParseRequest([]byte(body)); err != nil {
+			t.Errorf("%s: %v", body, err)
+		}
+	}
+	bad := []string{
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":{"provider":"Claude"}}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":{"provider":null}}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":{"provider":["claude"]}}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.setProvider","payload":[]}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.acceptDisclosure","payload":null}`,
+		`{"protocolVersion":1,"requestId":"r1","type":"settings.acceptDisclosure","payload":{"x":1}}`,
+	}
+	for _, body := range bad {
+		if _, err := ParseRequest([]byte(body)); err == nil {
+			t.Errorf("accepted %s", body)
+		}
 	}
 }

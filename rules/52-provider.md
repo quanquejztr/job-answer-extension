@@ -14,7 +14,7 @@ Providers are private experimental adapters over the user's own subscription CLI
 
 - Depend on a narrow `Provider` interface, not CLI-specific process behavior outside `internal/provider/<adapter>/`.
 - Adapters: `claude` (Claude Code) and `codex` (Codex CLI). The user picks one in settings; there is no automatic fallback between providers, because that would silently send data to a second service.
-- Provider input is a validated request containing only relevant facts and context.
+- Provider input is a validated request containing only the question, bounded job context, the profile content within the 40,000 code-point cap, and writing constraints.
 - Provider output is structured and validated before conversion to `DraftResponse`; validation is shared across adapters.
 - Keep provider error classification inside each adapter and map to the shared `PROVIDER_*` codes.
 - Do not expose raw stderr, stack traces, or provider payloads to the extension.
@@ -34,15 +34,15 @@ Providers are private experimental adapters over the user's own subscription CLI
 
 ## Prompt construction
 
-- Separate system rules, verified facts, question, job context, and writing constraints.
+- Separate system rules, the profile (résumé, stories, writing samples, writing rules, each labeled), question, job context, and writing constraints. Tell the model that samples and rules are style guidance and never evidence.
 - Label webpage-derived content as untrusted reference text.
-- Require JSON or another strictly parseable structure with `answer`, `evidenceIds`, and `warnings`.
-- Tell the model to omit unsupported facts rather than infer them.
+- Require JSON or another strictly parseable structure with `answer`, `evidence` (a list of `source` and `quote`, where `source` is `resume` or `story:<id>`), and `warnings`.
+- Tell the model to omit unsupported claims rather than infer them, and to quote the résumé or story text exactly.
 - Do not request chain-of-thought or persist conversations between drafts.
 
 ## Validation
 
-- Reject malformed output, unknown evidence IDs, unsupported claims, prohibited field categories, and length violations.
+- Reject malformed output, evidence quotes that are not exact excerpts of the cited source, drafts with no valid quote, numbers, years, percentages, or amounts that appear in none of the résumé, stories, question, or job context, prohibited field categories, and length violations.
 - Treat model warnings as data, not trusted validation.
 - Do not repair materially invalid factual output silently; regenerate only after an explicit user action or return a clear error.
 - Preserve the user's question and job-context edits after provider errors.

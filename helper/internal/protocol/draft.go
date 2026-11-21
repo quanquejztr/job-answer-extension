@@ -40,31 +40,28 @@ type DraftWarning struct {
 	Message  string `json:"message"`
 }
 
-// UsedFact is a fact shown as evidence; texts come from the helper.
-type UsedFact struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
+// EvidenceQuote is one quote the provider cites. The helper verifies it
+// against the profile before the response leaves the helper.
+type EvidenceQuote struct {
+	Source string `json:"source"`
+	Quote  string `json:"quote"`
 }
 
 // DraftResponse is PRD 16.2.
 type DraftResponse struct {
-	Answer      string         `json:"answer"`
-	EvidenceIDs []string       `json:"evidenceIds"`
-	Warnings    []DraftWarning `json:"warnings"`
-	UsedFacts   []UsedFact     `json:"usedFacts"`
+	Answer   string          `json:"answer"`
+	Evidence []EvidenceQuote `json:"evidence"`
+	Warnings []DraftWarning  `json:"warnings"`
 }
 
 // MarshalJSON emits empty arrays instead of null for nil slices.
 func (d DraftResponse) MarshalJSON() ([]byte, error) {
 	type alias DraftResponse
-	if d.EvidenceIDs == nil {
-		d.EvidenceIDs = []string{}
+	if d.Evidence == nil {
+		d.Evidence = []EvidenceQuote{}
 	}
 	if d.Warnings == nil {
 		d.Warnings = []DraftWarning{}
-	}
-	if d.UsedFacts == nil {
-		d.UsedFacts = []UsedFact{}
 	}
 	return json.Marshal(alias(d))
 }
@@ -183,10 +180,10 @@ func ParseDraftResponse(raw json.RawMessage) (DraftResponse, error) {
 	if err != nil {
 		return d, ErrInvalidPayload
 	}
-	if err := obj.only("answer", "evidenceIds", "warnings", "usedFacts"); err != nil {
+	if err := obj.only("answer", "evidence", "warnings"); err != nil {
 		return d, err
 	}
-	for _, k := range []string{"answer", "evidenceIds", "warnings", "usedFacts"} {
+	for _, k := range []string{"answer", "evidence", "warnings"} {
 		if _, ok := obj[k]; !ok {
 			return d, ErrInvalidPayload
 		}
@@ -194,17 +191,32 @@ func ParseDraftResponse(raw json.RawMessage) (DraftResponse, error) {
 	if d.Answer, err = asStringBounded(obj["answer"], 1, 1<<30); err != nil {
 		return d, err
 	}
-	ids, err := decodeArray(obj["evidenceIds"])
+	ev, err := decodeArray(obj["evidence"])
 	if err != nil {
 		return d, err
 	}
-	d.EvidenceIDs = []string{}
-	for _, e := range ids {
-		s, err := asString(e)
+	d.Evidence = []EvidenceQuote{}
+	for _, e := range ev {
+		eo, err := decodeObject(e)
 		if err != nil {
+			return d, ErrInvalidPayload
+		}
+		if err := eo.only("source", "quote"); err != nil {
 			return d, err
 		}
-		d.EvidenceIDs = append(d.EvidenceIDs, s)
+		sr, ok1 := eo["source"]
+		qr, ok2 := eo["quote"]
+		if !ok1 || !ok2 {
+			return d, ErrInvalidPayload
+		}
+		var q EvidenceQuote
+		if q.Source, err = asString(sr); err != nil {
+			return d, err
+		}
+		if q.Quote, err = asString(qr); err != nil {
+			return d, err
+		}
+		d.Evidence = append(d.Evidence, q)
 	}
 	ws, err := decodeArray(obj["warnings"])
 	if err != nil {
@@ -217,33 +229,6 @@ func ParseDraftResponse(raw json.RawMessage) (DraftResponse, error) {
 			return d, err
 		}
 		d.Warnings = append(d.Warnings, w)
-	}
-	fs, err := decodeArray(obj["usedFacts"])
-	if err != nil {
-		return d, err
-	}
-	d.UsedFacts = []UsedFact{}
-	for _, e := range fs {
-		fo, err := decodeObject(e)
-		if err != nil {
-			return d, ErrInvalidPayload
-		}
-		if err := fo.only("id", "text"); err != nil {
-			return d, err
-		}
-		idRaw, ok1 := fo["id"]
-		textRaw, ok2 := fo["text"]
-		if !ok1 || !ok2 {
-			return d, ErrInvalidPayload
-		}
-		var f UsedFact
-		if f.ID, err = asString(idRaw); err != nil {
-			return d, err
-		}
-		if f.Text, err = asString(textRaw); err != nil {
-			return d, err
-		}
-		d.UsedFacts = append(d.UsedFacts, f)
 	}
 	return d, nil
 }
@@ -279,7 +264,7 @@ func parseWarning(raw json.RawMessage) (DraftWarning, error) {
 		return w, err
 	}
 	switch w.Code {
-	case "UNSUPPORTED_CLAIM", "LOW_FACT_SUPPORT", "TRUNCATED_CONTEXT", "MODEL_NOTE":
+	case "UNSUPPORTED_CLAIM", "TRUNCATED_CONTEXT", "MODEL_NOTE":
 	default:
 		return w, ErrInvalidPayload
 	}

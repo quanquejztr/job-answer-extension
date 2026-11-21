@@ -5,7 +5,7 @@ import {
   MIN_MAX_WORDS,
   MIN_QUESTION_CHARS,
 } from '../lib/constants/limits';
-import { DraftWarningSchema } from './draft';
+import { DraftWarningSchema, EvidenceQuoteSchema, MAX_EVIDENCE, type EvidenceQuote } from './draft';
 import { ErrorCodeSchema } from './error';
 import {
   FieldCandidateSchema,
@@ -149,6 +149,11 @@ const CapturedBase = {
   field: PanelFieldSchema,
 };
 
+// A quote the draft rests on, as the helper verified it (source and quote only).
+// The panel never receives anything else from the profile (SEC-001, AC-050).
+export const PanelEvidenceSchema = EvidenceQuoteSchema;
+export type PanelEvidence = EvidenceQuote;
+
 // The reviewed draft. `answer` is what the provider returned; `editedAnswer` is
 // the user's text, kept only when an insert attempt failed or is running so the
 // edit survives. `maxWords` and `maxChars` are the limits the draft was made
@@ -159,7 +164,7 @@ const GeneratedBase = {
   // the panel starts a fresh editor even if the generating state was never rendered.
   draftId: z.number().int().nonnegative(),
   answer: z.string().min(1),
-  usedFactCount: z.number().int().nonnegative(),
+  evidence: z.array(PanelEvidenceSchema).max(MAX_EVIDENCE),
   warnings: z.array(DraftWarningSchema),
   maxWords: z.number().int().min(MIN_MAX_WORDS).max(MAX_MAX_WORDS),
   maxChars: z.number().int().min(1).optional(),

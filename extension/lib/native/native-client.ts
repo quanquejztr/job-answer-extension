@@ -1,6 +1,31 @@
 import { NATIVE_HOST_NAME } from '../constants/native-host';
+import { DiagnosticsResultSchema, type DiagnosticsResult } from '../../schemas/diagnostics';
 import { DraftResponseSchema, type DraftRequest, type DraftResponse } from '../../schemas/draft';
 import { appErrorFor, type AppError, type ErrorCode } from '../../schemas/error';
+import {
+  DELETE_ALL_CONFIRMATION,
+  DeleteResultSchema,
+  DisclosureResultSchema,
+  ProviderResultSchema,
+  type DisclosureResult,
+  type Provider,
+  ExportResultSchema,
+  ImportResultSchema,
+  ProfileSchema,
+  ResumeResultSchema,
+  UPSERT_RESULT_SCHEMAS,
+  type ExportResult,
+  type ImportDocumentPayload,
+  type ImportResult,
+  type ItemDeletePayload,
+  type ItemUpsertPayload,
+  type Profile,
+  type Resume,
+  type ResumeSetPayload,
+  type Story,
+  type WritingRule,
+  type WritingSample,
+} from '../../schemas/profile';
 import {
   HelloResultSchema,
   PROTOCOL_VERSION,
@@ -39,9 +64,33 @@ export interface NativeCall<T> {
   cancel(): void;
 }
 
+/** The stored item a profile.item.upsert returned, tagged with the kind that was sent. */
+export type StoredItem =
+  | { kind: 'story'; item: Story }
+  | { kind: 'sample'; item: WritingSample }
+  | { kind: 'rule'; item: WritingRule };
+
 export interface NativeClient {
   hello(extensionVersion: string): NativeCall<HelloResult>;
   generateDraft(request: DraftRequest): NativeCall<DraftResponse>;
+  /** Settings only: the worker never forwards a profile to any other caller. */
+  getProfile(): NativeCall<Profile>;
+  upsertProfileItem(payload: ItemUpsertPayload): NativeCall<StoredItem>;
+  /** Settings only: saves the reviewed résumé text (profile.resume.set). */
+  setResume(payload: ResumeSetPayload): NativeCall<Resume>;
+  /** Settings only: extracts a .docx's text for the editable box. The helper saves nothing. */
+  importDocument(payload: ImportDocumentPayload): NativeCall<ImportResult>;
+  deleteProfileItem(payload: ItemDeletePayload): NativeCall<{ deleted: true }>;
+  /** Settings only: the full profile, for the user's export file. */
+  exportProfile(): NativeCall<ExportResult>;
+  /** Settings only: removes every stored profile file. The confirmation is the literal "DELETE". */
+  deleteAllProfile(): NativeCall<{ deleted: true }>;
+  /** Settings only: helper and provider checks (executable, sign-in). Starts no login. */
+  runDiagnostics(): NativeCall<DiagnosticsResult>;
+  /** Settings only: stores the provider choice (settings.setProvider). */
+  setProvider(provider: Provider): NativeCall<Provider>;
+  /** Settings only: records that the owner accepted the first-use disclosure; the helper stamps the time. */
+  acceptDisclosure(): NativeCall<DisclosureResult>;
 }
 
 const failure = (code: ErrorCode): { ok: false; error: AppError } => ({
@@ -168,6 +217,151 @@ export function createNativeClient(
         },
         (r) => {
           const parsed = DraftResponseSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    getProfile: () =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.get',
+          payload: {},
+        },
+        (r) => {
+          const parsed = ProfileSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    upsertProfileItem: (payload) =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.item.upsert',
+          payload,
+        },
+        (r): StoredItem | undefined => {
+          // The result schema is chosen by the kind that was sent, so a helper
+          // answering with another kind's shape fails validation.
+          switch (payload.kind) {
+            case 'story': {
+              const parsed = UPSERT_RESULT_SCHEMAS.story.safeParse(r);
+              return parsed.success ? { kind: 'story', item: parsed.data.item } : undefined;
+            }
+            case 'sample': {
+              const parsed = UPSERT_RESULT_SCHEMAS.sample.safeParse(r);
+              return parsed.success ? { kind: 'sample', item: parsed.data.item } : undefined;
+            }
+            case 'rule': {
+              const parsed = UPSERT_RESULT_SCHEMAS.rule.safeParse(r);
+              return parsed.success ? { kind: 'rule', item: parsed.data.item } : undefined;
+            }
+          }
+        },
+      ),
+    setResume: (payload) =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.resume.set',
+          payload,
+        },
+        (r) => {
+          const parsed = ResumeResultSchema.safeParse(r);
+          return parsed.success ? parsed.data.resume : undefined;
+        },
+      ),
+    importDocument: (payload) =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.import.document',
+          payload,
+        },
+        (r) => {
+          const parsed = ImportResultSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    deleteProfileItem: (payload) =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.item.delete',
+          payload,
+        },
+        (r) => {
+          const parsed = DeleteResultSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    exportProfile: () =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.export',
+          payload: {},
+        },
+        (r) => {
+          const parsed = ExportResultSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    deleteAllProfile: () =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'profile.deleteAll',
+          payload: { confirm: DELETE_ALL_CONFIRMATION },
+        },
+        (r) => {
+          const parsed = DeleteResultSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    runDiagnostics: () =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'diagnostics.run',
+          payload: {},
+        },
+        (r) => {
+          const parsed = DiagnosticsResultSchema.safeParse(r);
+          return parsed.success ? parsed.data : undefined;
+        },
+      ),
+    setProvider: (provider) =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'settings.setProvider',
+          payload: { provider },
+        },
+        (r) => {
+          const parsed = ProviderResultSchema.safeParse(r);
+          // The helper must echo the provider that was sent.
+          return parsed.success && parsed.data.provider === provider ? provider : undefined;
+        },
+      ),
+    acceptDisclosure: () =>
+      call(
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          requestId: newRequestId(),
+          type: 'settings.acceptDisclosure',
+          payload: {},
+        },
+        (r) => {
+          const parsed = DisclosureResultSchema.safeParse(r);
           return parsed.success ? parsed.data : undefined;
         },
       ),

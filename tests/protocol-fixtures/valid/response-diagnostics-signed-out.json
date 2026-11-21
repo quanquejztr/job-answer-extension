@@ -1,0 +1,17 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "checks": [
+      { "name": "helper", "ok": true },
+      { "name": "providerExecutable", "ok": true },
+      {
+        "name": "providerSignIn",
+        "ok": false,
+        "code": "PROVIDER_NOT_AUTHENTICATED",
+        "userAction": "Sign in with the CLI yourself"
+      }
+    ]
+  }
+}

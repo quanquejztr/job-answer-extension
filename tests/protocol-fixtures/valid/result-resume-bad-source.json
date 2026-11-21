@@ -1,0 +1,12 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "resume": {
+      "text": "x",
+      "source": "web",
+      "updatedAt": "2026-11-20T10:00:00Z"
+    }
+  }
+}

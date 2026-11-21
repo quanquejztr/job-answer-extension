@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"jobanswer/helper/internal/limits"
+	"jobanswer/helper/internal/profile"
 	"jobanswer/helper/internal/protocol"
 	"jobanswer/helper/internal/provider"
 	"jobanswer/helper/internal/provider/fake"
@@ -47,7 +48,7 @@ type result struct {
 func run(t *testing.T, input []byte, p provider.Provider) result {
 	t.Helper()
 	var out, errBuf bytes.Buffer
-	err := Run(context.Background(), bytes.NewReader(input), &out, Config{Provider: p, Log: NewLogger(&errBuf)})
+	err := Run(context.Background(), bytes.NewReader(input), &out, Config{Provider: p, Log: NewLogger(&errBuf), Home: seedHome(t)})
 	var frames []protocol.ResponseEnvelope
 	for {
 		body, rerr := protocol.ReadMessage(&out, limits.MaxNativeResponseBytes)
@@ -84,7 +85,7 @@ func TestHello(t *testing.T) {
 	}
 }
 
-func TestGenerateReturnsFixedDraft(t *testing.T) {
+func TestGenerateReturnsDraftFromTheWholeProfile(t *testing.T) {
 	r := run(t, frameOf(t, generateBody("g1", "Why do you want this role?", 150, "")), fake.FakeProvider{})
 	if r.err != nil || len(r.frames) != 1 || !r.frames[0].OK {
 		t.Fatalf("err=%v frames=%+v", r.err, r.frames)
@@ -93,9 +94,10 @@ func TestGenerateReturnsFixedDraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, _ := fake.FakeProvider{}.Draft(context.Background(), protocol.DraftRequest{})
-	if d.Answer != want.Answer || len(d.EvidenceIDs) != 2 || d.EvidenceIDs[0] != "f_1" || d.EvidenceIDs[1] != "f_2" ||
-		len(d.UsedFacts) != 2 || len(d.Warnings) != 0 {
+	want := goodResponse()
+	if d.Answer != want.Answer || !strings.Contains(d.Answer, seedResumeText) ||
+		len(d.Evidence) != 2 || d.Evidence[0] != (protocol.EvidenceQuote{Source: "resume", Quote: seedResumeText}) ||
+		d.Evidence[1].Source != "story:s_1" || len(d.Warnings) != 0 {
 		t.Fatalf("unexpected draft: %+v", d)
 	}
 }
@@ -126,7 +128,7 @@ func TestRecoverableErrorsContinue(t *testing.T) {
 		id   string
 		code protocol.ErrorCode
 	}{
-		{"unknown type", `{"protocolVersion":1,"requestId":"u1","type":"profile.get","payload":{}}`, "u1", protocol.CodeInvalidRequest},
+		{"unknown type", `{"protocolVersion":1,"requestId":"u1","type":"profile.import.text","payload":{}}`, "u1", protocol.CodeInvalidRequest},
 		{"wrong version echoes valid id", `{"protocolVersion":2,"requestId":"v1","type":"helper.hello","payload":{"extensionVersion":"1"}}`, "v1", protocol.CodeProtocolVersionUnsupported},
 		{"wrong version, invalid id", `{"protocolVersion":2,"requestId":"bad id!","type":"helper.hello","payload":{"extensionVersion":"1"}}`, "", protocol.CodeProtocolVersionUnsupported},
 		{"invalid id", `{"protocolVersion":1,"requestId":"bad id!","type":"helper.hello","payload":{"extensionVersion":"1"}}`, "", protocol.CodeInvalidRequest},
@@ -201,10 +203,10 @@ func TestCleanEOFExitsNil(t *testing.T) {
 // bigProvider returns an answer whose response frame exceeds 512 KiB.
 type bigProvider struct{}
 
-func (bigProvider) Draft(context.Context, protocol.DraftRequest) (protocol.DraftResponse, error) {
+func (bigProvider) Draft(context.Context, provider.Input) (protocol.DraftResponse, error) {
 	return protocol.DraftResponse{
-		Answer:    "short answer",
-		UsedFacts: []protocol.UsedFact{{ID: "f_1", Text: strings.Repeat("x", limits.MaxNativeResponseBytes)}},
+		Answer:   strings.Repeat("x", limits.MaxNativeResponseBytes), // one "word"
+		Evidence: []protocol.EvidenceQuote{{Source: "resume", Quote: seedResumeText}},
 	}, nil
 }
 
@@ -224,18 +226,21 @@ type stubProvider struct {
 	err  error
 }
 
-func (s stubProvider) Draft(context.Context, protocol.DraftRequest) (protocol.DraftResponse, error) {
+func (s stubProvider) Draft(context.Context, provider.Input) (protocol.DraftResponse, error) {
 	return s.resp, s.err
 }
 
 type panicProvider struct{}
 
-func (panicProvider) Draft(context.Context, protocol.DraftRequest) (protocol.DraftResponse, error) {
+func (panicProvider) Draft(context.Context, provider.Input) (protocol.DraftResponse, error) {
 	panic(sentinel)
 }
 
 func goodResponse() protocol.DraftResponse {
-	r, _ := fake.FakeProvider{}.Draft(context.Background(), protocol.DraftRequest{})
+	r, _ := fake.FakeProvider{}.Draft(context.Background(), provider.Input{
+		Request: protocol.DraftRequest{Constraints: protocol.DraftConstraints{MaxWords: 150}},
+		Profile: profile.Profile{Resume: &profile.Resume{Text: seedResumeText, Source: profile.SourcePasted}},
+	})
 	return r
 }
 
@@ -292,8 +297,10 @@ func TestProviderResponseValidation(t *testing.T) {
 		code  protocol.ErrorCode
 	}{
 		{"empty answer", with(func(r *protocol.DraftResponse) { r.Answer = "   " }), "", 150, protocol.CodeProviderOutputInvalid},
-		{"unknown evidence id", with(func(r *protocol.DraftResponse) { r.EvidenceIDs = []string{"f_1", "f_99"} }), "", 150, protocol.CodeFactValidationFailed},
-		{"evidence without used facts", with(func(r *protocol.DraftResponse) { r.UsedFacts = nil }), "", 150, protocol.CodeFactValidationFailed},
+		{"quote is not an excerpt", with(func(r *protocol.DraftResponse) {
+			r.Evidence = []protocol.EvidenceQuote{{Source: "resume", Quote: "not in the resume at all"}}
+		}), "", 150, protocol.CodeFactValidationFailed},
+		{"no evidence", with(func(r *protocol.DraftResponse) { r.Evidence = []protocol.EvidenceQuote{} }), "", 150, protocol.CodeFactValidationFailed},
 		{"over maxWords", with(func(r *protocol.DraftResponse) { r.Answer = strings.Repeat("word ", 21) }), "", 20, protocol.CodeProviderOutputInvalid},
 		{"over maxChars", with(func(r *protocol.DraftResponse) {}), `,"maxChars":40`, 150, protocol.CodeProviderOutputInvalid},
 		{"bad warning code", with(func(r *protocol.DraftResponse) {
@@ -350,7 +357,7 @@ func TestNoPayloadTextInStderrOrErrors(t *testing.T) {
 // blockingProvider waits for cancellation and reports it.
 type blockingProvider struct{ started chan struct{} }
 
-func (b blockingProvider) Draft(ctx context.Context, _ protocol.DraftRequest) (protocol.DraftResponse, error) {
+func (b blockingProvider) Draft(ctx context.Context, _ provider.Input) (protocol.DraftResponse, error) {
 	close(b.started)
 	<-ctx.Done()
 	return protocol.DraftResponse{}, ctx.Err()
@@ -362,7 +369,7 @@ func TestStdinEOFCancelsInFlightProvider(t *testing.T) {
 	b := blockingProvider{started: make(chan struct{})}
 	finished := make(chan error, 1)
 	go func() {
-		finished <- Run(context.Background(), pr, &out, Config{Provider: b, Log: NewLogger(io.Discard)})
+		finished <- Run(context.Background(), pr, &out, Config{Provider: b, Log: NewLogger(io.Discard), Home: seedHome(t)})
 	}()
 	if _, err := pw.Write(frameOf(t, generateBody("x1", "Why do you want this role?", 150, ""))); err != nil {
 		t.Fatal(err)
@@ -394,7 +401,9 @@ func TestParentContextCancellationReachesProvider(t *testing.T) {
 	var out bytes.Buffer
 	b := blockingProvider{started: make(chan struct{})}
 	finished := make(chan error, 1)
-	go func() { finished <- Run(ctx, pr, &out, Config{Provider: b, Log: NewLogger(io.Discard)}) }()
+	go func() {
+		finished <- Run(ctx, pr, &out, Config{Provider: b, Log: NewLogger(io.Discard), Home: seedHome(t)})
+	}()
 	_, _ = pw.Write(frameOf(t, generateBody("x2", "Why do you want this role?", 150, "")))
 	<-b.started
 	cancel()
@@ -411,8 +420,29 @@ func (failWriter) Write([]byte) (int, error) { return 0, errors.New(sentinel) }
 
 func TestWriteFailureEndsProcess(t *testing.T) {
 	var errBuf bytes.Buffer
-	err := Run(context.Background(), bytes.NewReader(frameOf(t, `{"protocolVersion":1,"requestId":"a","type":"helper.hello","payload":{"extensionVersion":"1"}}`)), failWriter{}, Config{Provider: fake.FakeProvider{}, Log: NewLogger(&errBuf)})
+	err := Run(context.Background(), bytes.NewReader(frameOf(t, `{"protocolVersion":1,"requestId":"a","type":"helper.hello","payload":{"extensionVersion":"1"}}`)), failWriter{}, Config{Provider: fake.FakeProvider{}, Log: NewLogger(&errBuf), Home: seedHome(t)})
 	if !errors.Is(err, ErrWrite) || strings.Contains(err.Error(), sentinel) || strings.Contains(errBuf.String(), sentinel) {
 		t.Fatalf("err=%v stderr=%q", err, errBuf.String())
 	}
+}
+
+const seedResumeText = "Built routing software for small teams and learned systems design."
+
+// seedHome returns a temporary home whose profile holds a saved résumé and one
+// story, so draft.generate has the profile it requires.
+func seedHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	s, err := profile.NewStore(DataDir(home), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetResume(profile.ResumeInput{Text: seedResumeText, Source: profile.SourcePasted}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertStory(profile.StoryInput{Title: "Orchestra", Text: "Played cello in a community orchestra."}); err != nil {
+		t.Fatal(err)
+	}
+	chooseClaudeAndAccept(t, s)
+	return home
 }

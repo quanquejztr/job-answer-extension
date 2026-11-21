@@ -12,6 +12,22 @@ import {
   MAX_MAX_WORDS,
   MAX_CURRENT_DRAFT_CHARS,
   MAX_WARNING_MESSAGE_CHARS,
+  MAX_STORY_CHARS,
+  MAX_SAMPLE_CHARS,
+  MAX_RULE_CHARS,
+  MAX_RULES,
+  MAX_SAMPLES,
+  MAX_TITLE_CHARS,
+  MAX_LABEL_CHARS,
+  MAX_STORIES,
+  MAX_PROFILE_BYTES,
+  MAX_RESUME_CHARS,
+  MAX_PROFILE_TOTAL_CHARS,
+  MAX_DOCX_FILE_BYTES,
+  MAX_PDF_FILE_BYTES,
+  MAX_PDF_PAGES,
+  MAX_PDF_TEXT_CHARS,
+  PDF_EXTRACT_TIMEOUT_MS,
 } from './limits';
 
 describe('limits', () => {
@@ -27,6 +43,18 @@ describe('limits', () => {
     expect(MAX_MAX_WORDS).toBe(400);
     expect(MAX_CURRENT_DRAFT_CHARS).toBe(4000);
     expect(MAX_WARNING_MESSAGE_CHARS).toBe(200);
+    expect(MAX_STORY_CHARS).toBe(3000);
+    expect(MAX_SAMPLE_CHARS).toBe(3000);
+    expect(MAX_RULE_CHARS).toBe(200);
+    expect(MAX_RULES).toBe(20);
+    expect(MAX_SAMPLES).toBe(5);
+    expect(MAX_TITLE_CHARS).toBe(100);
+    expect(MAX_LABEL_CHARS).toBe(60);
+    expect(MAX_STORIES).toBe(30);
+    expect(MAX_PROFILE_BYTES).toBe(393216);
+    expect(MAX_RESUME_CHARS).toBe(15000);
+    expect(MAX_PROFILE_TOTAL_CHARS).toBe(40000);
+    expect(MAX_DOCX_FILE_BYTES).toBe(194560);
   });
 
   it('matches the shared fixture', () => {
@@ -45,6 +73,34 @@ describe('limits', () => {
       maxMaxWords: MAX_MAX_WORDS,
       maxCurrentDraftChars: MAX_CURRENT_DRAFT_CHARS,
       maxWarningMessageChars: MAX_WARNING_MESSAGE_CHARS,
+      maxStoryChars: MAX_STORY_CHARS,
+      maxSampleChars: MAX_SAMPLE_CHARS,
+      maxRuleChars: MAX_RULE_CHARS,
+      maxRules: MAX_RULES,
+      maxSamples: MAX_SAMPLES,
+      maxTitleChars: MAX_TITLE_CHARS,
+      maxLabelChars: MAX_LABEL_CHARS,
+      maxStories: MAX_STORIES,
+      maxProfileBytes: MAX_PROFILE_BYTES,
+      maxResumeChars: MAX_RESUME_CHARS,
+      maxProfileTotalChars: MAX_PROFILE_TOTAL_CHARS,
+      maxDocxFileBytes: MAX_DOCX_FILE_BYTES,
     });
+  });
+
+  it('matches the extension-only PDF fixture (no Go mirror: the PDF never reaches the helper)', () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'tests/protocol-fixtures/extension-limits.json'), 'utf8'),
+    ) as Record<string, number>;
+    expect(fixture).toEqual({
+      maxPdfFileBytes: MAX_PDF_FILE_BYTES,
+      maxPdfPages: MAX_PDF_PAGES,
+      maxPdfTextChars: MAX_PDF_TEXT_CHARS,
+      pdfExtractTimeoutMs: PDF_EXTRACT_TIMEOUT_MS,
+    });
+    expect(MAX_PDF_FILE_BYTES).toBe(5 * 1024 * 1024);
+    expect(MAX_PDF_PAGES).toBe(10);
+    expect(MAX_PDF_TEXT_CHARS).toBe(60000);
+    expect(PDF_EXTRACT_TIMEOUT_MS).toBe(20000);
   });
 });

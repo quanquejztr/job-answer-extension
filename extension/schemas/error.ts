@@ -122,9 +122,9 @@ export const ERROR_CATALOG: Readonly<Record<ErrorCode, CatalogEntry>> = {
     userAction: 'Regenerate',
   },
   FACT_VALIDATION_FAILED: {
-    message: 'The draft was not supported by your verified facts.',
+    message: 'The draft was not supported by your résumé and stories.',
     retryable: true,
-    userAction: 'Regenerate or add the missing fact',
+    userAction: 'Regenerate, or add the missing detail to your résumé or stories',
   },
   STORAGE_ERROR: {
     message: 'The profile could not be read or saved.',

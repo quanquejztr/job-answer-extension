@@ -6,10 +6,11 @@ import (
 	"context"
 	"io"
 	"os"
+	"os/user"
 
 	"jobanswer/helper/internal/host"
 	"jobanswer/helper/internal/identity"
-	"jobanswer/helper/internal/provider/fake"
+	"jobanswer/helper/internal/provider/claude"
 )
 
 func main() {
@@ -24,13 +25,32 @@ func run(args []string, in io.Reader, out, errw io.Writer) int {
 		log.Event(host.EventCallerRejected)
 		return 2
 	}
-	// Slice 1 uses the deterministic fake provider; real adapters arrive in Slice 3.
+	// An unresolvable home makes profile requests answer STORAGE_ERROR.
+	home, _ := os.UserHomeDir()
+	// Drafting and diagnostics use the real Claude Code CLI when the owner
+	// chose Claude in settings (Codex is not supported yet: its adapter is a
+	// stub). The executable is found only through PATH and the usual install
+	// directories; there is no override variable.
+	user := userName()
 	err := host.Run(context.Background(), in, out, host.Config{
-		Provider: fake.FakeProvider{},
-		Log:      log,
+		Provider:  claude.NewProvider(home, os.Getenv("PATH"), user),
+		Diagnoser: claude.New(home, os.Getenv("PATH"), user),
+		Log:       log,
+		Home:      home,
 	})
 	if err != nil {
 		return 1
 	}
 	return 0
+}
+
+// userName returns USER, which the Claude CLI needs for its sign-in lookup.
+func userName() string {
+	if u := os.Getenv("USER"); u != "" {
+		return u
+	}
+	if u, err := user.Current(); err == nil {
+		return u.Username
+	}
+	return ""
 }
