@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -34,7 +35,7 @@ func BuildSuccessResponse(requestID string, result any) (ResponseEnvelope, error
 	if !ValidRequestID(requestID) {
 		return ResponseEnvelope{}, ErrInvalidRequestID
 	}
-	raw, err := json.Marshal(result)
+	raw, err := marshalPlain(result)
 	if err != nil {
 		return ResponseEnvelope{}, fmt.Errorf("marshal result: %w", err)
 	}
@@ -152,3 +153,20 @@ func BuildCodeErrorResponse(requestID string, code ErrorCode) ResponseEnvelope {
 	appErr := NewAppError(code)
 	return ResponseEnvelope{ProtocolVersion: ProtocolVersion, RequestID: requestID, Error: &appErr}
 }
+
+// marshalPlain is json.Marshal without HTML escaping, so "<", ">" and "&" stay
+// one byte each. The profile store writes its file the same way, which keeps a
+// profile.get response no larger than the profile file it came from.
+func marshalPlain(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
+// MarshalResponse encodes a response envelope without HTML escaping (see
+// marshalPlain).
+func MarshalResponse(resp ResponseEnvelope) ([]byte, error) { return marshalPlain(resp) }

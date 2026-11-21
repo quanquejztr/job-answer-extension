@@ -66,7 +66,7 @@ export function createInsertFlow(deps: InsertFlowDeps): InsertFlow {
       field: reviewed.field,
       draftId: reviewed.draftId,
       answer: reviewed.answer,
-      usedFactCount: reviewed.usedFactCount,
+      evidence: reviewed.evidence,
       warnings: reviewed.warnings,
       maxWords: reviewed.maxWords,
       ...(reviewed.maxChars === undefined ? {} : { maxChars: reviewed.maxChars }),

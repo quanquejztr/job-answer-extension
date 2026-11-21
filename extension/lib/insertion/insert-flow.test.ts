@@ -31,8 +31,11 @@ const GENERATED: Extract<PanelState, { kind: 'generated' }> = {
   captureId: 'cap-1',
   field: { status: 'found', label: 'Why Acme?' },
   answer: 'Generated text.',
-  usedFactCount: 2,
-  warnings: [{ code: 'MODEL_NOTE', severity: 'info', message: 'Fact note FACT-TEXT.' }],
+  evidence: [
+    { source: 'resume', quote: 'Quote text QUOTE-TEXT here' },
+    { source: 'story:s_2', quote: 'Led a team of three on it' },
+  ],
+  warnings: [{ code: 'MODEL_NOTE', severity: 'info', message: 'Note NOTE-TEXT.' }],
   draftId: 7,
   maxWords: 20,
 };
@@ -154,11 +157,18 @@ describe('insert flow order and success', () => {
     expect(InsertRequestSchema.safeParse(insert?.message).success).toBe(true);
   });
 
-  it('never sends the question, facts, warnings, or generated text to the content script', async () => {
+  it('never sends the question, evidence, warnings, or generated text to the content script', async () => {
     const t = setup();
     await t.flow.start(START);
     const wire = JSON.stringify(t.sent.map((s) => s.message));
-    for (const secret of [QUESTION, 'secret question', 'FACT-TEXT', 'Generated text.', 'usedFact'])
+    for (const secret of [
+      QUESTION,
+      'secret question',
+      'QUOTE-TEXT',
+      'NOTE-TEXT',
+      'Generated text.',
+      'evidence',
+    ])
       expect(wire).not.toContain(secret);
   });
 

@@ -12,6 +12,20 @@ const (
 	TypeHelperHello   = "helper.hello"
 	TypeDraftGenerate = "draft.generate"
 	TypeDraftCancel   = "draft.cancel"
+
+	TypeProfileGet        = "profile.get"
+	TypeProfileItemUpsert = "profile.item.upsert"
+	TypeProfileItemDelete = "profile.item.delete"
+	TypeProfileResumeSet  = "profile.resume.set"
+	TypeProfileExport     = "profile.export"
+	TypeProfileDeleteAll  = "profile.deleteAll"
+
+	TypeProfileImportDocument = "profile.import.document"
+
+	TypeDiagnosticsRun = "diagnostics.run"
+
+	TypeSettingsSetProvider      = "settings.setProvider"
+	TypeSettingsAcceptDisclosure = "settings.acceptDisclosure"
 )
 
 // HelloPayload is the helper.hello payload.
@@ -42,6 +56,55 @@ func ParseHelloPayload(raw json.RawMessage) (HelloPayload, error) {
 	return p, err
 }
 
+// ParseDiagnosticsPayload strictly decodes a diagnostics.run payload: exactly {}.
+func ParseDiagnosticsPayload(raw json.RawMessage) error {
+	obj, err := decodeObject(raw)
+	if err != nil {
+		return ErrInvalidPayload
+	}
+	return obj.only()
+}
+
+// Provider names on the wire (PRD 16.1 settings).
+const (
+	ProviderClaude = "claude"
+	ProviderCodex  = "codex"
+)
+
+// SetProviderPayload is the settings.setProvider payload.
+type SetProviderPayload struct {
+	Provider string
+}
+
+// ParseSetProviderPayload strictly decodes {"provider":"claude"|"codex"}.
+func ParseSetProviderPayload(raw json.RawMessage) (SetProviderPayload, error) {
+	var p SetProviderPayload
+	obj, err := decodeObject(raw)
+	if err != nil {
+		return p, ErrInvalidPayload
+	}
+	if err := obj.only("provider"); err != nil {
+		return p, err
+	}
+	if p.Provider, err = requiredString(obj, "provider"); err != nil {
+		return p, err
+	}
+	if p.Provider != ProviderClaude && p.Provider != ProviderCodex {
+		return p, ErrInvalidPayload
+	}
+	return p, nil
+}
+
+// ParseAcceptDisclosurePayload strictly decodes a settings.acceptDisclosure
+// payload: exactly {}. The helper stamps the time itself.
+func ParseAcceptDisclosurePayload(raw json.RawMessage) error {
+	obj, err := decodeObject(raw)
+	if err != nil {
+		return ErrInvalidPayload
+	}
+	return obj.only()
+}
+
 // ParseCancelPayload strictly decodes a draft.cancel payload.
 func ParseCancelPayload(raw json.RawMessage) (CancelPayload, error) {
 	var p CancelPayload
@@ -70,11 +133,30 @@ var payloadValidators = map[string]func(json.RawMessage) error{
 	TypeHelperHello:   func(r json.RawMessage) error { _, err := ParseHelloPayload(r); return err },
 	TypeDraftGenerate: func(r json.RawMessage) error { _, err := ParseDraftRequest(r); return err },
 	TypeDraftCancel:   func(r json.RawMessage) error { _, err := ParseCancelPayload(r); return err },
+
+	TypeProfileGet:        func(r json.RawMessage) error { return ParseProfileGetPayload(r) },
+	TypeProfileItemUpsert: func(r json.RawMessage) error { _, err := ParseItemUpsertPayload(r); return err },
+	TypeProfileItemDelete: func(r json.RawMessage) error { _, err := ParseItemDeletePayload(r); return err },
+	TypeProfileResumeSet:  func(r json.RawMessage) error { _, err := ParseResumeSetPayload(r); return err },
+	TypeProfileExport:     func(r json.RawMessage) error { return ParseProfileExportPayload(r) },
+	TypeProfileDeleteAll:  func(r json.RawMessage) error { return ParseDeleteAllPayload(r) },
+
+	TypeProfileImportDocument: func(r json.RawMessage) error { _, err := ParseImportDocumentPayload(r); return err },
+
+	TypeDiagnosticsRun: func(r json.RawMessage) error { return ParseDiagnosticsPayload(r) },
+
+	TypeSettingsSetProvider:      func(r json.RawMessage) error { _, err := ParseSetProviderPayload(r); return err },
+	TypeSettingsAcceptDisclosure: func(r json.RawMessage) error { return ParseAcceptDisclosurePayload(r) },
 }
 
 // RegisteredTypes returns the implemented message types.
 func RegisteredTypes() []string {
-	return []string{TypeHelperHello, TypeDraftGenerate, TypeDraftCancel}
+	return []string{
+		TypeHelperHello, TypeDraftGenerate, TypeDraftCancel,
+		TypeProfileGet, TypeProfileItemUpsert, TypeProfileItemDelete, TypeProfileResumeSet,
+		TypeProfileExport, TypeProfileDeleteAll, TypeProfileImportDocument,
+		TypeDiagnosticsRun, TypeSettingsSetProvider, TypeSettingsAcceptDisclosure,
+	}
 }
 
 // RequestEnvelope is the extension-to-helper envelope. Payload is the raw,

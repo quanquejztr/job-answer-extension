@@ -2,10 +2,13 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"jobanswer/helper/internal/limits"
 )
 
 const fixtureDir = "../../../tests/protocol-fixtures"
@@ -38,6 +41,14 @@ func loadCases(t *testing.T) []fixtureCase {
 // generatedBody builds a well-formed draft.generate envelope of exactly size bytes.
 func generatedBody(t *testing.T, kind string) []byte {
 	t.Helper()
+	if kind == "docx-over-cap" || kind == "docx-at-cap" {
+		n := limits.MaxDocxFileBytes
+		if kind == "docx-over-cap" {
+			n++
+		}
+		b64 := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{'x'}, n))
+		return []byte(`{"protocolVersion":1,"requestId":"gen-1","type":"profile.import.document","payload":{"bytesBase64":"` + b64 + `"}}`)
+	}
 	size := map[string]int{"oversize-request": 256*1024 + 1, "ac052-300kib": 300 * 1024}[kind]
 	if size == 0 {
 		t.Fatalf("unknown generated kind %q", kind)
@@ -121,7 +132,7 @@ func TestValidFixtureResultParsesAsDraftResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Answer == "" || len(d.UsedFacts) != 1 || len(d.Warnings) != 1 {
+	if d.Answer == "" || len(d.Evidence) != 1 || d.Evidence[0].Source != "resume" || len(d.Warnings) != 1 {
 		t.Fatalf("unexpected parse: %+v", d)
 	}
 }

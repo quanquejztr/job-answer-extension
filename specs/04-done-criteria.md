@@ -7,7 +7,8 @@ A feature is complete only when its behavior, failure handling, tests, documenta
 - Selecting a narrative question and choosing **Draft answer** opens the side panel with the correct question.
 - The extension identifies only a nearby compatible free-response field or requests manual selection.
 - Job context is extracted with a confidence signal or can be pasted and corrected.
-- Generation uses only relevant verified facts and explicit writing rules.
+- Generation uses only the user's résumé, stories, writing samples, and explicit writing rules, and every accepted draft carries at least one verified evidence quote.
+- Drafting is blocked, with a hint, until a résumé is saved.
 - Drafts respect configured word or character limits.
 - The user can edit a draft before insertion.
 - Insertion requires an explicit user action.
@@ -21,7 +22,7 @@ A feature is complete only when its behavior, failure handling, tests, documenta
 
 - Structured eligibility, demographic, compensation, consent, and legal questions are not answered.
 - Multiple fields are never filled from one action.
-- Unknown profile claims and metrics are rejected.
+- Numbers, years, percentages, and amounts that appear nowhere in the user's text, the question, or the job context are rejected; evidence quotes that are not exact excerpts are rejected.
 - LinkedIn and Indeed show an unsupported-domain explanation and no drafting or insertion action.
 - A stale or ambiguous field target cannot be used silently.
 - Instructions embedded in page text cannot override system rules, access files, or enable tools.
@@ -38,7 +39,7 @@ A feature is complete only when its behavior, failure handling, tests, documenta
 
 ## Test requirements
 
-- Unit tests cover pure targeting, validation, fact selection, prompt construction, and protocol logic.
+- Unit tests cover pure targeting, validation (quote grounding and number checks), prompt construction, and protocol logic.
 - React tests cover review, editing, warnings, confirmations, and error states.
 - Go tests cover framing, limits, storage permissions, provider execution, cancellation, and validation.
 - Playwright tests load the unpacked extension against local fixture pages.
@@ -74,4 +75,4 @@ If a required command cannot run, the feature is not fully verified and the repo
 
 ## Traceability to acceptance criteria
 
-The binary Given/When/Then criteria are in `06-prd.md` section 21 (`AC-001` to `AC-061`). Each criterion is assigned to exactly one slice gate in `07-implementation-plan.md`. This checklist summarizes completion; when it and section 21 differ, section 21 wins.
+The binary Given/When/Then criteria are in `06-prd.md` section 21 (`AC-001` to `AC-063`). Each criterion is assigned to exactly one slice gate in `07-implementation-plan.md`. This checklist summarizes completion; when it and section 21 differ, section 21 wins.

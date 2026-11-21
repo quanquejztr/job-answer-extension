@@ -43,9 +43,8 @@ const REQUEST: DraftRequest = {
 };
 const DRAFT = {
   answer: 'A fixed answer.',
-  evidenceIds: ['f_1'],
+  evidence: [{ source: 'resume', quote: 'Built a route optimizer in Go' }],
   warnings: [],
-  usedFacts: [{ id: 'f_1', text: 'Fact' }],
 };
 const ok = (requestId: string, result: unknown) => ({
   protocolVersion: 1,
@@ -217,7 +216,13 @@ describe('native client', () => {
 
   it.each([
     ['empty answer', { ...DRAFT, answer: '' }],
-    ['missing usedFacts', { answer: 'a', evidenceIds: [], warnings: [] }],
+    ['missing evidence', { answer: 'a', warnings: [] }],
+    ['removed fact fields', { answer: 'a', evidenceIds: [], warnings: [], usedFacts: [] }],
+    [
+      'writing-sample source',
+      { ...DRAFT, evidence: [{ source: 'sample:w_1', quote: 'x'.repeat(20) }] },
+    ],
+    ['too-short quote', { ...DRAFT, evidence: [{ source: 'resume', quote: 'short' }] }],
     ['extra field', { ...DRAFT, extra: 1 }],
     ['bad warning', { ...DRAFT, warnings: [{ code: 'X', severity: 'info', message: 'm' }] }],
     ['not an object', 'a string'],
@@ -293,5 +298,79 @@ describe('native client', () => {
     });
     const r = await call.result;
     expect(JSON.stringify(r)).not.toMatch(/\/Users|stack|exit status/);
+  });
+  describe('runDiagnostics', () => {
+    const CHECKS = { checks: [{ name: 'helper', ok: true }] };
+
+    it('sends diagnostics.run with an empty payload and returns the checks', async () => {
+      const { port, client } = setup();
+      const call = client.runDiagnostics();
+      expect(port.posted[0]).toMatchObject({
+        protocolVersion: 1,
+        type: 'diagnostics.run',
+        payload: {},
+      });
+      port.reply(ok(sentId(port), CHECKS));
+      expect(await call.result).toEqual({ ok: true, value: CHECKS });
+    });
+
+    it('treats a result that breaks the schema as INTERNAL_ERROR', async () => {
+      const { port, client } = setup();
+      const call = client.runDiagnostics();
+      port.reply(ok(sentId(port), { checks: [{ name: 'helper', ok: false }] }));
+      expect(await call.result).toMatchObject({ ok: false, error: { code: 'INTERNAL_ERROR' } });
+    });
+  });
+
+  describe('settings', () => {
+    it('setProvider sends settings.setProvider and accepts only the echoed provider', async () => {
+      const { port, client } = setup();
+      const call = client.setProvider('claude');
+      expect(port.posted[0]).toMatchObject({
+        protocolVersion: 1,
+        type: 'settings.setProvider',
+        payload: { provider: 'claude' },
+      });
+      port.reply(ok(sentId(port), { provider: 'claude' }));
+      expect(await call.result).toEqual({ ok: true, value: 'claude' });
+    });
+
+    it.each([
+      ['another provider', { provider: 'codex' }],
+      ['an extra field', { provider: 'claude', extra: 1 }],
+      ['no provider', {}],
+    ])('setProvider treats %s in the result as INTERNAL_ERROR', async (_n, result) => {
+      const { port, client } = setup();
+      const call = client.setProvider('claude');
+      port.reply(ok(sentId(port), result));
+      expect(await call.result).toMatchObject({ ok: false, error: { code: 'INTERNAL_ERROR' } });
+    });
+
+    it('acceptDisclosure sends an empty payload and returns the helper timestamp', async () => {
+      const { port, client } = setup();
+      const call = client.acceptDisclosure();
+      expect(port.posted[0]).toMatchObject({ type: 'settings.acceptDisclosure', payload: {} });
+      port.reply(ok(sentId(port), { disclosureAcceptedAt: '2026-11-20T10:00:00Z' }));
+      expect(await call.result).toEqual({
+        ok: true,
+        value: { disclosureAcceptedAt: '2026-11-20T10:00:00Z' },
+      });
+    });
+
+    it('acceptDisclosure passes a helper error through and rejects a bad result', async () => {
+      const a = setup();
+      const failing = a.client.acceptDisclosure();
+      a.port.reply({
+        protocolVersion: 1,
+        requestId: sentId(a.port),
+        ok: false,
+        error: { code: 'STORAGE_ERROR', message: 'm', retryable: false },
+      });
+      expect(await failing.result).toMatchObject({ ok: false, error: { code: 'STORAGE_ERROR' } });
+      const b = setup();
+      const bad = b.client.acceptDisclosure();
+      b.port.reply(ok(sentId(b.port), {}));
+      expect(await bad.result).toMatchObject({ ok: false, error: { code: 'INTERNAL_ERROR' } });
+    });
   });
 });

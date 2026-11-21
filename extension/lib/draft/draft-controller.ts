@@ -128,12 +128,12 @@ export function createDraftController(deps: DraftControllerDeps): DraftControlle
         const state = deps.panel.get(tabId);
         if (state.kind !== 'generating' || state.captureId !== base.captureId) return;
         if (!outcome.ok) return backToCaptured(tabId, outcome.error.code);
-        const { answer, warnings, usedFacts } = outcome.value;
+        const { answer, warnings, evidence } = outcome.value;
         deps.panel.set(tabId, {
           kind: 'generated',
           ...shown,
           answer,
-          usedFactCount: usedFacts.length,
+          evidence: evidence.map(({ source, quote }) => ({ source, quote })),
           warnings,
           draftId: seq,
           maxWords: DEFAULT_MAX_WORDS,

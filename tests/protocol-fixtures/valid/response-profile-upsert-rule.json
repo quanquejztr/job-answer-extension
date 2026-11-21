@@ -1,0 +1,13 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "item": {
+      "id": "r_5",
+      "kind": "tone",
+      "text": "Plain.",
+      "enabled": true
+    }
+  }
+}

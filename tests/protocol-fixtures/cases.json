@@ -62,13 +62,6 @@
     "note": "unknown type"
   },
   {
-    "file": "invalid/unimplemented-profile-get.json",
-    "direction": "request",
-    "valid": false,
-    "errorCode": "INVALID_REQUEST",
-    "note": "catalog type not yet implemented"
-  },
-  {
     "file": "invalid/unknown-top-field.json",
     "direction": "request",
     "valid": false,
@@ -272,5 +265,656 @@
     "valid": false,
     "errorCode": "INVALID_REQUEST",
     "note": "AC-052: unknown type with unknown field is rejected as a whole"
+  },
+  {
+    "file": "valid/profile-get.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.get with empty payload"
+  },
+  {
+    "file": "valid/profile-upsert-story.json",
+    "direction": "request",
+    "valid": true,
+    "note": "story create (title and text only)"
+  },
+  {
+    "file": "valid/profile-upsert-sample.json",
+    "direction": "request",
+    "valid": true,
+    "note": "sample create"
+  },
+  {
+    "file": "valid/profile-upsert-rule.json",
+    "direction": "request",
+    "valid": true,
+    "note": "rule create without enabled"
+  },
+  {
+    "file": "valid/profile-upsert-rule-disabled.json",
+    "direction": "request",
+    "valid": true,
+    "note": "rule update with enabled false"
+  },
+  {
+    "file": "valid/profile-delete-sample.json",
+    "direction": "request",
+    "valid": true,
+    "note": "sample delete"
+  },
+  {
+    "file": "invalid/profile-get-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.get rejects any payload field"
+  },
+  {
+    "file": "invalid/profile-upsert-unknown-kind.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown kind"
+  },
+  {
+    "file": "invalid/profile-upsert-item-unknown-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "unknown item field (verified is not a field)"
+  },
+  {
+    "file": "invalid/profile-upsert-kind-shape-mismatch.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "kind story with a sample-shaped item"
+  },
+  {
+    "file": "invalid/profile-upsert-rule-bad-kind.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "rule kind outside the enum"
+  },
+  {
+    "file": "invalid/profile-upsert-rule-enabled-string.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "enabled must be a boolean"
+  },
+  {
+    "file": "invalid/profile-upsert-missing-item.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "item missing"
+  },
+  {
+    "file": "invalid/profile-delete-wrong-prefix.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "delete id with the wrong prefix"
+  },
+  {
+    "file": "invalid/profile-delete-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "delete rejects extra field"
+  },
+  {
+    "file": "invalid/profile-delete-missing-id.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "delete without id"
+  },
+  {
+    "file": "valid/response-profile-get.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": true,
+    "note": "profile.get result: a full v2 Profile with a résumé"
+  },
+  {
+    "file": "valid/response-profile-get-empty.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": true,
+    "note": "profile.get result on an empty store"
+  },
+  {
+    "file": "valid/response-profile-upsert-story.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "item:story",
+    "resultValid": true,
+    "note": "upsert result: the stored story"
+  },
+  {
+    "file": "valid/response-profile-upsert-sample.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "item:sample",
+    "resultValid": true,
+    "note": "upsert result: the stored sample"
+  },
+  {
+    "file": "valid/response-profile-upsert-rule.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "item:rule",
+    "resultValid": true,
+    "note": "upsert result: the stored rule"
+  },
+  {
+    "file": "valid/response-profile-delete.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "deleted",
+    "resultValid": true,
+    "note": "delete result"
+  },
+  {
+    "file": "valid/result-profile-unknown-field.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": false,
+    "note": "Profile result carrying a facts field"
+  },
+  {
+    "file": "valid/result-delete-false.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "deleted",
+    "resultValid": false,
+    "note": "deleted must be true"
+  },
+  {
+    "file": "valid/profile-export.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.export with empty payload"
+  },
+  {
+    "file": "valid/profile-delete-all.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.deleteAll with the literal confirmation"
+  },
+  {
+    "file": "invalid/profile-export-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.export rejects any payload field"
+  },
+  {
+    "file": "invalid/profile-delete-all-lowercase.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "confirm is case sensitive"
+  },
+  {
+    "file": "invalid/profile-delete-all-padded.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "confirm must match exactly, no whitespace"
+  },
+  {
+    "file": "invalid/profile-delete-all-missing-confirm.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "deleteAll without confirm"
+  },
+  {
+    "file": "invalid/profile-delete-all-not-string.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "confirm must be a string"
+  },
+  {
+    "file": "invalid/profile-delete-all-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "deleteAll rejects extra field"
+  },
+  {
+    "file": "valid/response-profile-export.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "export",
+    "resultValid": true,
+    "note": "export result: {file: Profile}"
+  },
+  {
+    "file": "valid/response-profile-export-empty.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "export",
+    "resultValid": true,
+    "note": "export result on an empty store"
+  },
+  {
+    "file": "valid/response-profile-delete-all.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "deleted",
+    "resultValid": true,
+    "note": "deleteAll result"
+  },
+  {
+    "file": "valid/result-export-bare-profile.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "export",
+    "resultValid": false,
+    "note": "export result without the file wrapper"
+  },
+  {
+    "file": "valid/result-export-unknown-field.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "export",
+    "resultValid": false,
+    "note": "export result with an unknown top-level field"
+  },
+  {
+    "file": "valid/result-delete-all-false.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "deleted",
+    "resultValid": false,
+    "note": "deleteAll deleted must be true"
+  },
+  {
+    "file": "invalid/unimplemented-profile-import-text.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.text was removed (ADR 0003)"
+  },
+  {
+    "file": "valid/profile-upsert-story-update.json",
+    "direction": "request",
+    "valid": true,
+    "note": "story update: id present"
+  },
+  {
+    "file": "valid/profile-delete-story.json",
+    "direction": "request",
+    "valid": true,
+    "note": "story delete"
+  },
+  {
+    "file": "valid/profile-resume-set.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.resume.set pasted"
+  },
+  {
+    "file": "valid/profile-resume-set-docx.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.resume.set docx"
+  },
+  {
+    "file": "valid/profile-resume-set-pdf.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.resume.set pdf"
+  },
+  {
+    "file": "invalid/profile-resume-set-bad-source.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.resume.set: source outside the enum"
+  },
+  {
+    "file": "invalid/profile-resume-set-missing-source.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.resume.set: source missing"
+  },
+  {
+    "file": "invalid/profile-resume-set-missing-text.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.resume.set: text missing"
+  },
+  {
+    "file": "invalid/profile-resume-set-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.resume.set: extra payload field"
+  },
+  {
+    "file": "invalid/profile-resume-set-text-not-string.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.resume.set: text must be a string"
+  },
+  {
+    "file": "invalid/profile-upsert-kind-fact-removed.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "the fact kind was removed"
+  },
+  {
+    "file": "invalid/profile-delete-kind-fact-removed.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "the fact kind was removed (delete)"
+  },
+  {
+    "file": "invalid/profile-upsert-story-with-tags.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "story tags were removed"
+  },
+  {
+    "file": "invalid/profile-upsert-story-with-fact-ids.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "story factIds were removed"
+  },
+  {
+    "file": "invalid/profile-upsert-story-wrong-id-prefix.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "story id with the sample prefix"
+  },
+  {
+    "file": "invalid/profile-upsert-story-empty-id.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "empty id is not \"absent\""
+  },
+  {
+    "file": "invalid/profile-upsert-story-leading-zero-id.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "id with a leading zero"
+  },
+  {
+    "file": "valid/response-profile-resume-set.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "resume",
+    "resultValid": true,
+    "note": "resume.set result: the stored resume"
+  },
+  {
+    "file": "valid/result-resume-bad-source.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "resume",
+    "resultValid": false,
+    "note": "resume result with a source outside the enum"
+  },
+  {
+    "file": "valid/result-resume-missing-wrapper.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "resume",
+    "resultValid": false,
+    "note": "resume result without the resume wrapper"
+  },
+  {
+    "file": "valid/result-profile-version-1.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": false,
+    "note": "Profile result with schemaVersion 1"
+  },
+  {
+    "file": "valid/result-profile-story-fact-ids.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": false,
+    "note": "Profile result with a story factIds field"
+  },
+  {
+    "file": "valid/result-profile-bad-resume-source.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "profile",
+    "resultValid": false,
+    "note": "Profile result with a bad resume source"
+  },
+  {
+    "file": "valid/result-export-version-1.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "export",
+    "resultValid": false,
+    "note": "export file with schemaVersion 1"
+  },
+  {
+    "file": "valid/profile-import-document.json",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.import.document with made-up bytes"
+  },
+  {
+    "file": "invalid/profile-import-document-filename.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: extra field: no file name is sent"
+  },
+  {
+    "file": "invalid/profile-import-document-missing-bytes.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: bytesBase64 missing"
+  },
+  {
+    "file": "invalid/profile-import-document-not-string.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: bytesBase64 must be a string"
+  },
+  {
+    "file": "invalid/profile-import-document-empty.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: empty file"
+  },
+  {
+    "file": "invalid/profile-import-document-bad-base64.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: not base64"
+  },
+  {
+    "file": "invalid/profile-import-document-unpadded.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: base64 without padding"
+  },
+  {
+    "generated": "docx-over-cap",
+    "file": "generated/docx-over-cap",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "profile.import.document: one byte over the 190 KiB file cap"
+  },
+  {
+    "generated": "docx-at-cap",
+    "file": "generated/docx-at-cap",
+    "direction": "request",
+    "valid": true,
+    "note": "profile.import.document: exactly the file cap fits in one native request"
+  },
+  {
+    "file": "valid/response-profile-import-document.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "imported",
+    "resultValid": true,
+    "note": "import result: text and source docx"
+  },
+  {
+    "file": "valid/result-import-bad-source.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "imported",
+    "resultValid": false,
+    "note": "import result with source other than docx"
+  },
+  {
+    "file": "valid/result-import-missing-text.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "imported",
+    "resultValid": false,
+    "note": "import result without text"
+  },
+  {
+    "file": "valid/result-import-unknown-field.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "imported",
+    "resultValid": false,
+    "note": "import result with an extra field"
+  },
+  {
+    "file": "valid/diagnostics-run.json",
+    "direction": "request",
+    "valid": true,
+    "note": "diagnostics.run with empty payload"
+  },
+  {
+    "file": "invalid/diagnostics-run-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "diagnostics.run rejects any payload field"
+  },
+  {
+    "file": "valid/response-diagnostics-ok.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": true,
+    "note": "diagnostics all checks pass"
+  },
+  {
+    "file": "valid/response-diagnostics-signed-out.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": true,
+    "note": "diagnostics sign-in failure with catalog code and action"
+  },
+  {
+    "file": "valid/result-diagnostics-ok-with-code.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": false,
+    "note": "a passing check must not carry a code"
+  },
+  {
+    "file": "valid/result-diagnostics-failed-no-code.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": false,
+    "note": "a failing check must carry a code"
+  },
+  {
+    "file": "valid/result-diagnostics-unknown-code.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": false,
+    "note": "code must be in the catalog"
+  },
+  {
+    "file": "valid/result-diagnostics-unknown-field.json",
+    "direction": "response",
+    "valid": true,
+    "resultType": "diagnostics",
+    "resultValid": false,
+    "note": "check with an extra field"
+  },
+  {
+    "file": "valid/settings-set-provider-claude.json",
+    "direction": "request",
+    "valid": true,
+    "note": "settings.setProvider claude"
+  },
+  {
+    "file": "valid/settings-set-provider-codex.json",
+    "direction": "request",
+    "valid": true,
+    "note": "settings.setProvider codex (stored; no adapter yet)"
+  },
+  {
+    "file": "valid/settings-accept-disclosure.json",
+    "direction": "request",
+    "valid": true,
+    "note": "settings.acceptDisclosure with empty payload; the helper stamps the time"
+  },
+  {
+    "file": "invalid/settings-set-provider-unknown.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "provider must be claude or codex"
+  },
+  {
+    "file": "invalid/settings-set-provider-missing.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "provider is required"
+  },
+  {
+    "file": "invalid/settings-set-provider-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "settings.setProvider rejects extra fields (no default provider)"
+  },
+  {
+    "file": "invalid/settings-accept-disclosure-extra-field.json",
+    "direction": "request",
+    "valid": false,
+    "errorCode": "INVALID_REQUEST",
+    "note": "settings.acceptDisclosure rejects any payload field (the client cannot choose the time)"
   }
 ]

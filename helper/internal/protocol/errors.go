@@ -82,7 +82,7 @@ var errorCatalog = map[ErrorCode]catalogEntry{
 	CodeProviderTimeout:            {"The provider took too long to respond.", true, "Retry"},
 	CodeProviderCancelled:          {"The request was cancelled.", true, ""},
 	CodeProviderOutputInvalid:      {"The provider output was not usable.", true, "Regenerate"},
-	CodeFactValidationFailed:       {"The draft was not supported by your verified facts.", true, "Regenerate or add the missing fact"},
+	CodeFactValidationFailed:       {"The draft was not supported by your résumé and stories.", true, "Regenerate, or add the missing detail to your résumé or stories"},
 	CodeStorageError:               {"The profile could not be read or saved.", false, "Export if possible, then repair or reset"},
 	CodeInternalError:              {"An internal error occurred.", false, "Restart Chrome; check diagnostics"},
 }

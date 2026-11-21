@@ -1,6 +1,6 @@
 # 0001: Foundational Product and Architecture Decisions
 
-- Status: Accepted (the provider-boundary decision is superseded by [0002](0002-subscription-cli-providers.md))
+- Status: Accepted (the provider-boundary decision is superseded by [0002](0002-subscription-cli-providers.md); the "relevant verified facts" and fact-selection wording below is historical and superseded by [0003](0003-resume-and-stories-profile.md))
 - Date: 2026-11-18
 - Supersedes: None
 

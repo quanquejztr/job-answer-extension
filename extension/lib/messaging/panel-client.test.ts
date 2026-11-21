@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { createPanelClient, type PanelApi } from './panel-client';
 import type { Sender } from './panel-messages';
 
@@ -12,6 +13,7 @@ function fakeApi(reply: (message: unknown) => unknown) {
       return () => listeners.delete(l);
     },
     addActiveTabListener: () => () => undefined,
+    openOptionsPage: () => Promise.resolve(),
   };
   return { api, listeners };
 }
@@ -124,5 +126,126 @@ describe('panel client draft commands', () => {
     const { api } = fakeApi(() => undefined);
     createPanelClient({ ...api, openSessionPort: open });
     expect(open).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('panel client profile status', () => {
+  const reply = (m: unknown, result: unknown) => ({
+    v: 1,
+    requestId: (m as { requestId: string }).requestId,
+    ok: true,
+    result,
+  });
+
+  it('sends a bare panel.profileStatus.get and returns only the status fields', async () => {
+    const sent: unknown[] = [];
+    const { api } = fakeApi((m) => {
+      sent.push(m);
+      return reply(m, {
+        hasResume: true,
+        storyCount: 3,
+        provider: 'claude',
+        disclosureAccepted: true,
+      });
+    });
+    await expect(createPanelClient(api).getProfileStatus()).resolves.toEqual({
+      hasResume: true,
+      storyCount: 3,
+      provider: 'claude',
+      disclosureAccepted: true,
+    });
+    expect(sent).toMatchObject([{ v: 1, type: 'panel.profileStatus.get', payload: {} }]);
+  });
+
+  it('accepts a status with no provider chosen, and rejects an unknown provider', async () => {
+    const ok = fakeApi((m) =>
+      reply(m, { hasResume: false, storyCount: 0, disclosureAccepted: false }),
+    );
+    await expect(createPanelClient(ok.api).getProfileStatus()).resolves.toEqual({
+      hasResume: false,
+      storyCount: 0,
+      disclosureAccepted: false,
+    });
+    const bad = fakeApi((m) =>
+      reply(m, { hasResume: true, storyCount: 0, provider: 'gpt', disclosureAccepted: true }),
+    );
+    await expect(createPanelClient(bad.api).getProfileStatus()).resolves.toBeUndefined();
+  });
+
+  it('openSettings opens the options page and swallows a refusal', async () => {
+    const { api } = fakeApi(() => undefined);
+    const open = vi.fn(() => Promise.resolve());
+    api.openOptionsPage = open;
+    await createPanelClient(api).openSettings();
+    expect(open).toHaveBeenCalledTimes(1);
+    api.openOptionsPage = () => Promise.reject(new Error('no'));
+    await expect(createPanelClient(api).openSettings()).resolves.toBeUndefined();
+  });
+
+  it.each([
+    [
+      'a helper error reply',
+      (m: unknown) => ({
+        v: 1,
+        requestId: (m as { requestId: string }).requestId,
+        ok: false,
+        error: {
+          code: 'STORAGE_ERROR',
+          message: 'The profile could not be read or saved.',
+          retryable: false,
+          userAction: 'Export if possible, then repair or reset',
+        },
+      }),
+    ],
+    [
+      'a reply for another request',
+      () => ({
+        v: 1,
+        requestId: 'other',
+        ok: true,
+        result: { hasResume: true, storyCount: 0, disclosureAccepted: true },
+      }),
+    ],
+    [
+      'a status with extra profile fields',
+      (m: unknown) =>
+        reply(m, {
+          hasResume: true,
+          storyCount: 1,
+          disclosureAccepted: true,
+          resume: { text: 'x' },
+        }),
+    ],
+    [
+      'a status without hasResume',
+      (m: unknown) => reply(m, { storyCount: 1, disclosureAccepted: true }),
+    ],
+    [
+      'a non-boolean hasResume',
+      (m: unknown) => reply(m, { hasResume: 1, storyCount: 1, disclosureAccepted: true }),
+    ],
+    [
+      'more stories than the limit',
+      (m: unknown) => reply(m, { hasResume: true, storyCount: 31, disclosureAccepted: true }),
+    ],
+    [
+      'a negative count',
+      (m: unknown) => reply(m, { hasResume: true, storyCount: -1, disclosureAccepted: true }),
+    ],
+    [
+      'a fractional count',
+      (m: unknown) => reply(m, { hasResume: true, storyCount: 1.5, disclosureAccepted: true }),
+    ],
+    [
+      'a status without disclosureAccepted',
+      (m: unknown) => reply(m, { hasResume: true, storyCount: 1 }),
+    ],
+    ['garbage', () => ({ nope: true })],
+    ['no reply', () => undefined],
+    ['a thrown error', () => Promise.reject(new Error('worker gone'))],
+  ])('is undefined for %s', async (_name, replyFn) => {
+    const { api } = fakeApi(replyFn);
+    api.sendMessage = (m) => Promise.resolve().then(() => replyFn(m));
+    await expect(createPanelClient(api).getProfileStatus()).resolves.toBeUndefined();
   });
 });

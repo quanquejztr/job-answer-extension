@@ -1,8 +1,10 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { MAX_QUESTION_CHARS, MIN_QUESTION_CHARS } from '../lib/constants/limits';
 import { checkAnswer, countWords, type AnswerCheck } from '../lib/draft/answer-limits';
 import { appErrorFor } from '../schemas/error';
 import type { DraftWarning } from '../schemas/draft';
+import type { ProfileStatus } from '../schemas/profile-status-message';
+import type { EvidenceQuote } from '../schemas/draft';
 import type { CaptureSource, PanelField, PanelState } from '../schemas/internal-message';
 
 /** What the panel can ask for; implemented by the app through the typed panel client. */
@@ -12,6 +14,8 @@ export interface PanelActions {
   /** Insert the reviewed answer as currently edited. Only the explicit button calls this. */
   insert(captureId: string, answer: string): void;
   cancel(): void;
+  /** Opens the settings page (provider choice, disclosure, résumé). */
+  openSettings(): void;
 }
 
 type ReviewState = Extract<PanelState, { kind: 'generated' | 'inserting' }>;
@@ -19,6 +23,54 @@ type DraftingState = Extract<PanelState, { kind: 'captured' | 'generating' }> | 
 
 // Everything below renders as React text nodes only: question text and error
 // strings are never interpreted as HTML.
+
+/** Shown, with Generate disabled, when no provider is chosen (PRD 18). */
+export const NO_PROVIDER_HINT = 'Choose Claude Code or Codex in settings before drafting.';
+
+/** Shown, with Generate disabled, until the first-use disclosure is accepted (PRD 18.1). */
+export const NO_DISCLOSURE_HINT =
+  'Read and accept the first-use disclosure in settings before drafting.';
+
+/** Shown, with Generate disabled, when no résumé is saved. */
+export const NO_RESUME_HINT = "Add your résumé in the extension's settings before drafting.";
+
+type Blocker = 'provider' | 'disclosure' | 'resume';
+
+const BLOCKER_HINT: Record<Blocker, string> = {
+  provider: NO_PROVIDER_HINT,
+  disclosure: NO_DISCLOSURE_HINT,
+  resume: NO_RESUME_HINT,
+};
+
+/**
+ * What stops a draft before it starts, in the order the owner must fix it, or
+ * undefined when nothing is known to stop it (including when the status is
+ * unknown: the helper then answers the request itself).
+ */
+function blockerFor(status: ProfileStatus | undefined): Blocker | undefined {
+  if (status === undefined) return undefined;
+  if (status.provider === undefined) return 'provider';
+  if (!status.disclosureAccepted) return 'disclosure';
+  if (!status.hasResume) return 'resume';
+  return undefined;
+}
+
+const PROVIDER_NAME = { claude: 'Claude Code', codex: 'Codex' } as const;
+
+/** Whole seconds since mount while `active`; 0 otherwise. */
+function useElapsedSeconds(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const start = Date.now();
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => {
+      clearInterval(timer);
+      setSeconds(0);
+    };
+  }, [active]);
+  return seconds;
+}
 
 const SOURCE_TEXT: Record<CaptureSource, string> = {
   'content-script': 'Source: the selection read from the page.',
@@ -49,6 +101,28 @@ function ErrorNotice({ code }: { code: Parameters<typeof appErrorFor>[0] }) {
   );
 }
 
+/** Where a quote came from, in words. The story id stays out of the label. */
+function sourceLabel(source: string): string {
+  return source === 'resume' ? 'Résumé' : 'Story';
+}
+
+/** The verified quotes the draft rests on, collapsed by default. Plain text only. */
+function EvidenceList({ evidence }: { evidence: readonly EvidenceQuote[] }) {
+  if (evidence.length === 0) return null;
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer font-medium">Evidence</summary>
+      <ul className="mt-1 list-disc ps-5">
+        {evidence.map((e, i) => (
+          <li key={`${e.source}-${i}`}>
+            <span className="text-muted">{sourceLabel(e.source)}</span>: &ldquo;{e.quote}&rdquo;
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function WarningList({ warnings }: { warnings: readonly DraftWarning[] }) {
   if (warnings.length === 0) return null;
   return (
@@ -68,12 +142,24 @@ function WarningList({ warnings }: { warnings: readonly DraftWarning[] }) {
  * generating, and generated states. One component serves all three, so the
  * user's edits survive each transition (the key is the captureId).
  */
-function DraftPanel({ state, actions }: { state: DraftingState; actions: PanelActions }) {
+function DraftPanel({
+  state,
+  actions,
+  profileStatus,
+}: {
+  state: DraftingState;
+  actions: PanelActions;
+  profileStatus: ProfileStatus | undefined;
+}) {
   const id = useId();
   const [text, setText] = useState(state.question);
   const generating = state.kind === 'generating';
   const long = Array.from(text.trim()).length;
   const questionOk = long >= MIN_QUESTION_CHARS;
+  const blocker = blockerFor(profileStatus);
+  const elapsed = useElapsedSeconds(generating);
+  const providerName =
+    profileStatus?.provider === undefined ? 'your provider' : PROVIDER_NAME[profileStatus.provider];
   return (
     <section aria-labelledby={`${id}-label`} className="mt-3">
       <label id={`${id}-label`} htmlFor={`${id}-field`} className="block font-medium">
@@ -100,12 +186,24 @@ function DraftPanel({ state, actions }: { state: DraftingState; actions: PanelAc
         )}
       </div>
       {state.kind === 'captured' && state.error !== undefined && <ErrorNotice code={state.error} />}
+      {state.kind === 'captured' && blocker !== undefined && (
+        <div role="status" className="state state-warning mt-3">
+          <p>{BLOCKER_HINT[blocker]}</p>
+          <button
+            type="button"
+            className="border-border bg-surface text-text mt-2 rounded-md border px-3 py-2 font-medium"
+            onClick={() => actions.openSettings()}
+          >
+            Open settings
+          </button>
+        </div>
+      )}
       {state.kind === 'captured' && (
         <div className="mt-3">
           <button
             type="button"
             className="bg-accent text-on-accent rounded-md px-3 py-2 font-medium disabled:opacity-60"
-            disabled={!questionOk}
+            disabled={!questionOk || blocker !== undefined}
             onClick={() => actions.generate(state.captureId, text)}
           >
             Generate draft
@@ -115,7 +213,8 @@ function DraftPanel({ state, actions }: { state: DraftingState; actions: PanelAc
       {generating && (
         <div className="mt-3">
           <p role="status" className="state state-loading mb-2">
-            Generating a draft. This can take up to a minute and a half.
+            Generating with {providerName}… {elapsed} s elapsed. This can take up to a minute and a
+            half.
           </p>
           <button
             type="button"
@@ -206,9 +305,11 @@ function ReviewSection({
           {state.maxChars !== undefined && ` (${chars} of ${state.maxChars} characters)`}
         </p>
         <p id={`${id}-origin`} className="text-muted mt-2">
-          {edited ? 'Edited by you.' : 'Generated draft.'} Facts used: {state.usedFactCount}.{' '}
-          Nothing has been inserted into the page.
+          {edited ? 'Edited by you.' : 'Generated draft.'} Evidence: {state.evidence.length}{' '}
+          {state.evidence.length === 1 ? 'quote' : 'quotes'}. Nothing has been inserted into the
+          page.
         </p>
+        <EvidenceList evidence={state.evidence} />
         <WarningList warnings={state.warnings} />
       </section>
       {insertError !== undefined && <ErrorNotice code={insertError} />}
@@ -243,7 +344,16 @@ function ReviewSection({
   );
 }
 
-export function PanelStateView({ state, actions }: { state: PanelState; actions: PanelActions }) {
+export function PanelStateView({
+  state,
+  actions,
+  profileStatus,
+}: {
+  state: PanelState;
+  actions: PanelActions;
+  /** Whether a résumé is saved; undefined when unknown (the helper answers on Generate). */
+  profileStatus?: ProfileStatus | undefined;
+}) {
   switch (state.kind) {
     case 'empty':
       return (
@@ -266,7 +376,14 @@ export function PanelStateView({ state, actions }: { state: PanelState; actions:
     case 'generated':
     case 'inserting':
       // The key resets local edits when the same tab captures again.
-      return <DraftPanel key={state.captureId} state={state} actions={actions} />;
+      return (
+        <DraftPanel
+          key={state.captureId}
+          state={state}
+          actions={actions}
+          profileStatus={profileStatus}
+        />
+      );
     case 'inserted':
       return (
         <div role="status" aria-live="polite" className="state state-success mt-3">

@@ -56,16 +56,32 @@ export const DraftRequestSchema = z.strictObject({
 export type DraftRequest = z.infer<typeof DraftRequestSchema>;
 
 export const DraftWarningSchema = z.strictObject({
-  code: z.enum(['UNSUPPORTED_CLAIM', 'LOW_FACT_SUPPORT', 'TRUNCATED_CONTEXT', 'MODEL_NOTE']),
+  code: z.enum(['UNSUPPORTED_CLAIM', 'TRUNCATED_CONTEXT', 'MODEL_NOTE']),
   severity: z.enum(['info', 'warn']),
   message: z.string().refine((s) => chars(s) <= MAX_WARNING_MESSAGE_CHARS),
 });
 export type DraftWarning = z.infer<typeof DraftWarningSchema>;
 
+// One quote the draft rests on. The helper has already verified it as an exact
+// excerpt of the cited source (PRD 15.2); `source` is 'resume' or 'story:<id>'.
+// Bounds from PRD 15.2: a quote is 12 to 300 code points; a draft carries at
+// most 10. They are local to the schemas, like the helper's validator constants.
+export const MIN_QUOTE_CHARS = 12;
+export const MAX_QUOTE_CHARS = 300;
+export const MAX_EVIDENCE = 10;
+
+export const EvidenceQuoteSchema = z.strictObject({
+  source: z.string().regex(/^(resume|story:[^\s:]{1,40})$/),
+  quote: z.string().refine((s) => {
+    const n = chars(s);
+    return n >= MIN_QUOTE_CHARS && n <= MAX_QUOTE_CHARS;
+  }),
+});
+export type EvidenceQuote = z.infer<typeof EvidenceQuoteSchema>;
+
 export const DraftResponseSchema = z.strictObject({
   answer: z.string().min(1),
-  evidenceIds: z.array(z.string()),
+  evidence: z.array(EvidenceQuoteSchema).max(MAX_EVIDENCE),
   warnings: z.array(DraftWarningSchema),
-  usedFacts: z.array(z.strictObject({ id: z.string(), text: z.string() })),
 });
 export type DraftResponse = z.infer<typeof DraftResponseSchema>;

@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "file": {
+      "schemaVersion": 2,
+      "nextId": 1,
+      "settings": {},
+      "resume": null,
+      "stories": [],
+      "samples": [],
+      "rules": []
+    }
+  }
+}

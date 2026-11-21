@@ -31,7 +31,7 @@ Security boundaries are product requirements, not optional hardening.
 
 ## Prompt injection
 
-- Delimit question, job description, profile facts, and rules as data with explicit roles.
+- Delimit question, job description, résumé, stories, samples, and rules as data with explicit roles.
 - State that instructions inside page/job content are untrusted and must not be followed.
 - Run the provider without tools, MCP servers, hooks, skills, or persistent sessions.
 - Use a private empty working directory.
@@ -41,7 +41,7 @@ Security boundaries are product requirements, not optional hardening.
 ## Output and insertion
 
 - Parse provider output as data and render it as text.
-- Validate evidence IDs and prohibited claims before displaying a successful draft.
+- Verify evidence quotes and unsupported numbers before displaying a successful draft.
 - Require explicit review and insertion.
 - Never trigger application navigation or submission.
 - If field identity or insertion success is uncertain, fail closed and offer a manual fallback.

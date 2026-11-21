@@ -1,2 +1,2 @@
-// Package profile will hold the profile schema and atomic local store.
+// Package profile holds the profile schema (PRD 16.1) and the atomic local store.
 package profile

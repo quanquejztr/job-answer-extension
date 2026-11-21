@@ -1,0 +1,10 @@
+{
+  "protocolVersion": 1,
+  "requestId": "req-0001",
+  "ok": true,
+  "result": {
+    "text": "x",
+    "source": "pasted",
+    "updatedAt": "2026-11-20T10:00:00Z"
+  }
+}

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
+	"time"
 
 	"jobanswer/helper/internal/limits"
+	"jobanswer/helper/internal/profile"
 	"jobanswer/helper/internal/protocol"
 	"jobanswer/helper/internal/provider"
 	"jobanswer/helper/internal/validate"
@@ -16,9 +19,30 @@ import (
 const Version = "0.1.0"
 
 // Config holds what Run needs. Provider is required.
+//
+// Provider and Diagnoser are the adapter used when the profile's provider
+// setting is "claude" (the only adapter; Codex is an unsupported stub, so a
+// "codex" setting never reaches a provider). main injects the real Claude
+// adapter; tests inject the fake provider or a Claude adapter over a fake
+// executable.
 type Config struct {
 	Provider provider.Provider
-	Log      *Logger
+	// Diagnoser answers diagnostics.run for the Claude provider. Nil makes
+	// diagnostics.run answer INTERNAL_ERROR when Claude is the chosen provider.
+	Diagnoser provider.Diagnoser
+	Log       *Logger
+	// Home is the user's home directory (injected; main passes
+	// os.UserHomeDir()). The profile lives under
+	// <Home>/Library/Application Support/JobAnswerDrafter. An empty or
+	// relative Home makes every profile request answer STORAGE_ERROR.
+	Home string
+	// ProfileTimeout bounds one profile request (and the profile load of a
+	// draft request); zero means the 5 s default.
+	ProfileTimeout time.Duration
+
+	// loadProfile replaces the default Store.Load in draft.generate. Tests
+	// use it to simulate a store that outlives the deadline.
+	loadProfile func(*profile.Store) (any, error)
 }
 
 // ErrFraming reports a stream failure that ends the process (truncated,
@@ -97,7 +121,7 @@ func Run(parent context.Context, in io.Reader, out io.Writer, cfg Config) error 
 		}
 		switch {
 		case f.err == nil:
-			resp := handle(ctx, cfg.Provider, f.body, log)
+			resp := handle(ctx, cfg, f.body, log)
 			if err := writeResponse(out, resp, log); err != nil {
 				return err
 			}
@@ -125,7 +149,7 @@ func Run(parent context.Context, in io.Reader, out io.Writer, cfg Config) error 
 // writeResponse marshals and writes one frame. A response over the limit is
 // replaced by INTERNAL_ERROR (PRD 17.3; MESSAGE_TOO_LARGE is for requests).
 func writeResponse(out io.Writer, resp protocol.ResponseEnvelope, log *Logger) error {
-	body, err := json.Marshal(resp)
+	body, err := protocol.MarshalResponse(resp)
 	if err != nil {
 		body, err = json.Marshal(protocol.BuildCodeErrorResponse(resp.RequestID, protocol.CodeInternalError))
 		if err != nil {
@@ -160,7 +184,7 @@ type cancelResult struct {
 }
 
 // handle parses and dispatches one request body into one response.
-func handle(ctx context.Context, p provider.Provider, body []byte, log *Logger) protocol.ResponseEnvelope {
+func handle(ctx context.Context, cfg Config, body []byte, log *Logger) protocol.ResponseEnvelope {
 	env, err := protocol.ParseRequest(body)
 	if err != nil {
 		// ParseRequest sets RequestID only when it was valid; otherwise "".
@@ -172,7 +196,16 @@ func handle(ctx context.Context, p provider.Provider, body []byte, log *Logger) 
 	case protocol.TypeHelperHello:
 		return success(env.RequestID, helloResult{HelperVersion: Version, ProtocolVersion: protocol.ProtocolVersion}, log)
 	case protocol.TypeDraftGenerate:
-		return generate(ctx, p, env, log)
+		return generate(ctx, cfg, env, log)
+	case protocol.TypeProfileGet, protocol.TypeProfileItemUpsert, protocol.TypeProfileItemDelete,
+		protocol.TypeProfileResumeSet, protocol.TypeProfileExport, protocol.TypeProfileDeleteAll:
+		return handleProfile(cfg, env, log)
+	case protocol.TypeSettingsSetProvider, protocol.TypeSettingsAcceptDisclosure:
+		return handleProfile(cfg, env, log)
+	case protocol.TypeProfileImportDocument:
+		return importDocument(env, log)
+	case protocol.TypeDiagnosticsRun:
+		return diagnose(ctx, cfg, env, log)
 	case protocol.TypeDraftCancel:
 		// Each request uses its own port and process, so with the fake provider
 		// nothing is ever in flight to cancel. Real cancellation is closing the
@@ -184,24 +217,78 @@ func handle(ctx context.Context, p provider.Provider, body []byte, log *Logger) 
 	}
 }
 
-func generate(ctx context.Context, p provider.Provider, env protocol.RequestEnvelope, log *Logger) protocol.ResponseEnvelope {
+// generate runs one draft. It loads the profile from the same data directory
+// as the profile handlers (same deadline, STORAGE_ERROR on store failure),
+// requires a saved résumé and a profile within the content cap (both
+// INVALID_REQUEST, no provider call), and hands the whole profile to the
+// provider. The provider's output is validated before anything is returned.
+func generate(ctx context.Context, cfg Config, env protocol.RequestEnvelope, log *Logger) protocol.ResponseEnvelope {
 	req, err := protocol.ParseDraftRequest(env.Payload)
 	if err != nil {
 		return fail(env.RequestID, protocol.ToAppError(err).Code, log)
 	}
-	resp, err := callProvider(ctx, p, req)
+	load := cfg.loadProfile
+	if load == nil {
+		load = func(s *profile.Store) (any, error) { return s.Load() }
+	}
+	loaded, err := withStore(cfg, load)
+	if err != nil {
+		if errors.Is(err, errDeadline) {
+			log.Event(EventProfileTimeout)
+		}
+		return fail(env.RequestID, profileErrorCode(err), log)
+	}
+	p, ok := loaded.(*profile.Profile)
+	if !ok || p == nil {
+		return fail(env.RequestID, protocol.CodeInternalError, log)
+	}
+	if p.Resume == nil || strings.TrimSpace(p.Resume.Text) == "" {
+		log.Event(EventNoResume)
+		return fail(env.RequestID, protocol.CodeInvalidRequest, log)
+	}
+	// FR-005: no provider chosen, or the first-use disclosure not accepted,
+	// means no draft and no provider call, whatever the panel showed.
+	if p.Settings.Provider == "" {
+		log.Event(EventNoProvider)
+		return fail(env.RequestID, protocol.CodeInvalidRequest, log)
+	}
+	if p.Settings.DisclosureAcceptedAt == "" {
+		log.Event(EventNoDisclosure)
+		return fail(env.RequestID, protocol.CodeInvalidRequest, log)
+	}
+	chosen, ok := cfg.providerFor(p.Settings.Provider)
+	if !ok {
+		log.Event(EventProviderUnsupported)
+		return fail(env.RequestID, protocol.CodeInvalidRequest, log)
+	}
+	if p.ContentChars() > limits.MaxProfileTotalChars {
+		log.Event(EventProfileOverCap)
+		return fail(env.RequestID, protocol.CodeInvalidRequest, log)
+	}
+	resp, err := callProvider(ctx, chosen, provider.Input{Request: req, Profile: *p})
 	if err != nil {
 		return fail(env.RequestID, provider.CodeFor(err), log)
 	}
-	if err := validate.DraftResponse(req, resp); err != nil {
+	checked, err := validate.DraftResponse(req, *p, resp)
+	if err != nil {
 		return fail(env.RequestID, validate.CodeFor(err), log)
 	}
-	return success(env.RequestID, resp, log)
+	return success(env.RequestID, checked, log)
+}
+
+// providerFor returns the adapter for a provider setting. Only Claude has one.
+// A nil adapter for Claude is a wiring bug and surfaces as INTERNAL_ERROR in
+// callProvider.
+func (c Config) providerFor(name string) (provider.Provider, bool) {
+	if name == profile.ProviderClaude {
+		return c.Provider, true
+	}
+	return nil, false
 }
 
 // callProvider contains a provider panic so it becomes INTERNAL_ERROR rather
 // than ending the process.
-func callProvider(ctx context.Context, p provider.Provider, req protocol.DraftRequest) (resp protocol.DraftResponse, err error) {
+func callProvider(ctx context.Context, p provider.Provider, in provider.Input) (resp protocol.DraftResponse, err error) {
 	if p == nil {
 		return resp, errors.New("no provider")
 	}
@@ -210,7 +297,7 @@ func callProvider(ctx context.Context, p provider.Provider, req protocol.DraftRe
 			resp, err = protocol.DraftResponse{}, errors.New("provider panic")
 		}
 	}()
-	return p.Draft(ctx, req)
+	return p.Draft(ctx, in)
 }
 
 func success(requestID string, result any, log *Logger) protocol.ResponseEnvelope {

@@ -1,0 +1,6 @@
+{
+  "maxPdfFileBytes": 5242880,
+  "maxPdfPages": 10,
+  "maxPdfTextChars": 60000,
+  "pdfExtractTimeoutMs": 20000
+}

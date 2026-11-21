@@ -190,7 +190,10 @@ describe('draft states and messages (step 1.3)', () => {
     kind: 'generated',
     ...base,
     answer: 'An answer.',
-    usedFactCount: 2,
+    evidence: [
+      { source: 'resume', quote: 'Built a route optimizer in Go' },
+      { source: 'story:s_2', quote: 'Led a team of three on it' },
+    ],
     warnings: [{ code: 'MODEL_NOTE', severity: 'info', message: 'Note.' }],
     draftId: 1,
     maxWords: 150,
@@ -204,7 +207,7 @@ describe('draft states and messages (step 1.3)', () => {
         kind: 'generated',
         ...base,
         answer: 'x',
-        usedFactCount: 0,
+        evidence: [],
         warnings: [],
         draftId: 1,
         maxWords: 150,
@@ -219,10 +222,34 @@ describe('draft states and messages (step 1.3)', () => {
     ['generating with an answer', { kind: 'generating', ...base, answer: 'x' }],
     ['generated without an answer', { ...generated, answer: undefined }],
     ['generated with an empty answer', { ...generated, answer: '' }],
-    ['generated with a negative fact count', { ...generated, usedFactCount: -1 }],
-    ['generated with a fractional fact count', { ...generated, usedFactCount: 1.5 }],
+    ['generated with the removed usedFacts field', { ...generated, usedFacts: [] }],
+    ['generated with the removed evidenceIds field', { ...generated, evidenceIds: [] }],
+    ['generated without evidence', { ...generated, evidence: undefined }],
+    [
+      'generated with a quote carrying an extra field',
+      { ...generated, evidence: [{ source: 'resume', quote: 'x'.repeat(20), id: 'f_1' }] },
+    ],
+    ['generated with a quote without text', { ...generated, evidence: [{ source: 'resume' }] }],
+    [
+      'generated with a writing-sample source',
+      { ...generated, evidence: [{ source: 'sample:w_1', quote: 'x'.repeat(20) }] },
+    ],
+    [
+      'generated with a too-short quote',
+      { ...generated, evidence: [{ source: 'resume', quote: 'x'.repeat(11) }] },
+    ],
+    [
+      'generated with an over-long quote',
+      { ...generated, evidence: [{ source: 'resume', quote: 'x'.repeat(301) }] },
+    ],
+    [
+      'generated with more than 10 quotes',
+      {
+        ...generated,
+        evidence: Array.from({ length: 11 }, () => ({ source: 'resume', quote: 'x'.repeat(20) })),
+      },
+    ],
     ['generated with a bad warning', { ...generated, warnings: [{ code: 'X' }] }],
-    ['generated with usedFacts text leaking in', { ...generated, usedFacts: [] }],
     ['captured with an unknown error code', { kind: 'captured', ...base, error: 'NOPE' }],
   ])('rejects %s', (_n, state) => {
     expect(PanelStateSchema.safeParse(state).success).toBe(false);
@@ -272,7 +299,7 @@ describe('insert states and messages (step 1.4)', () => {
   const review = {
     ...base,
     answer: 'An answer.',
-    usedFactCount: 2,
+    evidence: [{ source: 'resume', quote: 'Built a route optimizer in Go' }],
     warnings: [],
     draftId: 1,
     maxWords: 150,

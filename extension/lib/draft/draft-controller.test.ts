@@ -11,12 +11,11 @@ const clock: Clock = { monotonicMs: () => 0, wallMs: () => 0 };
 const QUESTION = 'Why do you want to work at Acme?';
 const DRAFT: DraftResponse = {
   answer: 'Deterministic answer.',
-  evidenceIds: ['f_1', 'f_2'],
-  warnings: [{ code: 'MODEL_NOTE', severity: 'info', message: 'Note.' }],
-  usedFacts: [
-    { id: 'f_1', text: 'One' },
-    { id: 'f_2', text: 'Two' },
+  evidence: [
+    { source: 'resume', quote: 'Built a route optimizer in Go' },
+    { source: 'story:s_2', quote: 'Led a team of three on it' },
   ],
+  warnings: [{ code: 'MODEL_NOTE', severity: 'info', message: 'Note.' }],
 };
 
 interface Pending {
@@ -94,7 +93,7 @@ describe('draft controller', () => {
       captureId: 'c1',
       field: { status: 'found', label: 'Why Acme?' },
       answer: 'Deterministic answer.',
-      usedFactCount: 2,
+      evidence: DRAFT.evidence,
       warnings: DRAFT.warnings,
       draftId: 1,
       maxWords: 150,
@@ -193,7 +192,7 @@ describe('draft controller', () => {
         captureId: 'c1',
         field: { status: 'found' },
         ...(kind === 'inserting'
-          ? { answer: 'x', usedFactCount: 0, warnings: [], draftId: 1, maxWords: 150 }
+          ? { answer: 'x', evidence: [], warnings: [], draftId: 1, maxWords: 150 }
           : {}),
       } as PanelState);
       t.controller.start({ tabId: 1, captureId: 'c1', question: QUESTION });

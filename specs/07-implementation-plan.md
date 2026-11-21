@@ -3,7 +3,8 @@
 - Status: Not started
 - Planning model: Modified vertical slices for LLM-assisted coding
 - Source of truth: `06-prd.md`, `03-architecture.md`, and `05-contracts-and-invariants.md`
-- Last updated: 2026-11-19
+- Profile pivot: [ADR 0003](decisions/0003-resume-and-stories-profile.md) (2026-11-20) replaced facts, keyword fact selection, and evidence IDs with a résumé text, stories, whole-profile drafting, and quote grounding. Steps 2.1 to 2.4 below were delivered for facts and are superseded by Slice 2B; the docs describe the target and the code catches up in Slice 2B.
+- Last updated: 2026-11-20 (profile pivot: ADR 0003 adds Slice 2B and supersedes the fact parts of Slice 2 and old Slice 6)
 
 ## Why this planning style
 
@@ -212,53 +213,149 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 ## Slice 2 — Trusted Manual Profile
 
-**Outcome:** The user can manage verified facts, stories, writing samples, and rules locally; deterministic drafts use selected facts.
+**Outcome (as delivered):** The user can manage verified facts, stories, writing samples, and rules locally; deterministic drafts use selected facts.
 
-**Requirements:** `FR-012`, `FR-013`, `FR-014`, `FR-015`, `FR-016`, `PRIV-001`, `PRIV-002`, `PRIV-003`, `PRIV-004`, `PRIV-005`, `PRIV-007`.
+**Superseded in part (ADR 0003, 2026-11-20):** the fact data model, fact settings UI, keyword selector, and `FakeProvider` fact logic delivered by steps 2.1 to 2.4 are replaced by [Slice 2B](#slice-2b--résumé-and-stories-profile). Export, delete-all, the atomic store, locking, and the typed worker plumbing stay. The completion notes below are history of what was delivered.
 
-### 2.1 Define and store the profile
+**Requirements:** `FR-012`, `FR-013`, `FR-015`, `FR-016`, `PRIV-001`, `PRIV-002`, `PRIV-003`, `PRIV-004`, `PRIV-007` (`FR-014` and `PRIV-005`, `PRIV-008` move to Slice 2B).
 
-- [ ] Define a versioned profile schema containing verified facts, stories, writing samples, and writing rules.
-- [ ] Assign stable opaque IDs to verified facts; do not reuse deleted IDs.
-- [ ] Implement owner-only application directories and atomic Go writes.
-- [ ] Reject malformed, oversized, unknown-version, and symlink-unsafe storage input.
-- [ ] Add migration hooks that currently support only the initial version explicitly.
+### 2.1 Define and store the profile (delivered for facts; the fact model is superseded by step 2B.1)
+
+- [x] Define a versioned profile schema containing verified facts, stories, writing samples, and writing rules.
+- [x] Assign stable opaque IDs to verified facts; do not reuse deleted IDs.
+- [x] Implement owner-only application directories and atomic Go writes.
+- [x] Reject malformed, oversized, unknown-version, and symlink-unsafe storage input.
+- [x] Add migration hooks that currently support only the initial version explicitly.
 
 **Exit:** Go tests cover CRUD, permissions, atomic failure, invalid data, and version rejection.
 
-### 2.2 Build manual profile settings
+Passed 2026-11-20: 111 profile test results under `-race`, plus the shared limits sync tests. Carry-over for step 2.2: apply a deadline around mutations (the file lock waits without a timeout) and map store errors to `STORAGE_ERROR`; carry-over for step 2.3: delete-all must also remove `.profile.lock` and leftover temp files.
 
-- [ ] Add settings views for creating, editing, verifying, and deleting facts and stories.
-- [ ] Add writing-sample and explicit-rule editors, including maximum word/character rules.
-- [ ] Route all sensitive operations through the typed native client.
-- [ ] Show that profile data stays local and explain what a later draft may send to the selected provider.
+### 2.2 Build manual profile settings (delivered; the Facts tab and accuracy tick are superseded by step 2B.2)
+
+- [x] Add settings views for creating, editing, verifying, and deleting facts and stories.
+- [x] Add writing-sample and explicit-rule editors, including maximum word/character rules.
+- [x] Route all sensitive operations through the typed native client.
+- [x] Show that profile data stays local and explain what a later draft may send to the selected provider.
 
 **Exit:** React tests cover CRUD, validation, keyboard access, destructive confirmation, and error recovery.
 
+Automated checks passed 2026-11-20 (852 unit tests, 50 e2e tests, Go tests with `-race`). Manual acceptance in the owner's real Chrome on 2026-11-20 covered the options page loading, adding a fact (including the required accuracy tick), persistence across reload, and edit and delete; the remaining manual items (story link cascade, sensitive-text warning, sample and rule limits, Privacy tab, helper-unavailable recovery) are covered by the automated e2e tests and were not run by hand.
+
 ### 2.3 Add export and delete-all-data
 
-- [ ] Export an explicit versioned user-data file after user action.
-- [ ] Implement confirmed delete-all for app-owned profile and temporary data.
-- [ ] Do not claim deletion from Chrome, the provider, employer sites, backups, or macOS.
-- [ ] Add sentinel tests proving profile content does not appear in logs or errors.
+- [x] Export an explicit versioned user-data file after user action.
+- [x] Implement confirmed delete-all for app-owned profile and temporary data.
+- [x] Do not claim deletion from Chrome, the provider, employer sites, backups, or macOS.
+- [x] Add sentinel tests proving profile content does not appear in logs or errors.
 
 **Exit:** Export round-trip and delete tests pass; storage is empty after confirmed deletion.
 
-### 2.4 Select relevant facts for a deterministic draft
+Automated checks passed 2026-11-20 (923 unit tests, 52 e2e tests, Go tests with `-race`). "Storage is empty" means no profile data remains; the empty `.profile.lock` and `bin/` stay. Manual acceptance in the owner's real Chrome passed on 2026-11-20: export downloaded a file matching the stored data, delete-all required typing `DELETE`, lists were empty after reload, and `profile.json` was removed while `bin/` and the lock file remained.
 
-- [ ] Implement a deterministic, testable relevance selector using question/job-context terms and source priority.
-- [ ] Bound the number and total size of selected facts.
-- [ ] Update `FakeProvider` to return a response referencing only supplied fact IDs.
-- [ ] Reject unknown evidence IDs before displaying success.
+### 2.4 Select relevant facts for a deterministic draft (delivered, then superseded by step 2B.3)
+
+- [x] Implement a deterministic, testable relevance selector using question/job-context terms and source priority.
+- [x] Bound the number and total size of selected facts.
+- [x] Update `FakeProvider` to return a response referencing only supplied fact IDs.
+- [x] Reject unknown evidence IDs before displaying success.
 
 **Exit:** Selecting a question produces a fixture draft tied only to stored, selected facts; unknown evidence IDs fail closed.
 
+Automated checks passed 2026-11-20 (965 unit tests, 55 e2e tests, Go tests with `-race`). Manual acceptance of this step was pending when the owner pivoted the design (ADR 0003): the selector, `FakeProvider` fact logic, and "Facts used" panel are replaced by step 2B.3, so this manual acceptance is dropped and the Slice 2B manual check replaces it.
+
 ### Slice 2 gate
 
-- [ ] Acceptance criteria pass: `AC-011`, `AC-012`, `AC-013`, `AC-014`, `AC-030`, `AC-031`, `AC-057`.
+- [ ] Acceptance criteria pass: `AC-013`, `AC-014` (`AC-011`, `AC-012`, `AC-030`, `AC-031`, and `AC-057` are re-written for the new profile and gated in Slice 2B).
 - [ ] Full profile never appears in content-script messages or routine logs.
-- [ ] Profile CRUD, export, delete, fact selection, and the Slice 1 flow pass together.
+- [ ] Profile CRUD, export, delete, and the Slice 1 flow pass together (the fact-selection item is replaced by Slice 2B).
 - [ ] Run all canonical checks.
+
+The Slice 2 gate closes together with the Slice 2B gate, because 2B rewrites the profile code that the gate exercises.
+
+---
+
+## Slice 2B — Résumé and Stories Profile
+
+**Outcome:** The user keeps one reviewed résumé text plus stories, samples, and rules; every draft sends the whole profile to the provider; the helper verifies that each draft is supported by exact quotes from the résumé or a story and by the numbers in the user's text. PDF and DOCX résumé upload is added after pasted text works (this slice absorbs old Slice 6).
+
+**Source:** [ADR 0003](decisions/0003-resume-and-stories-profile.md) and PRD decisions D8 to D10.
+
+**Requirements:** `FR-010`, `FR-011`, `FR-012`, `FR-013`, `FR-014`, `FR-016`, `FR-050`, `FR-052`, `FR-053`, `PRIV-004`, `PRIV-005`, `PRIV-006`, `PRIV-008`, `SEC-001`.
+
+**Replaces:** the fact model and fact UI (2.1 to 2.3), and the selector, `FakeProvider` fact logic, and `internal/facts` (2.4). Existing `schemaVersion` 1 test data is discarded.
+
+### 2B.1 Profile v2 store
+
+- [ ] Change the profile to `schemaVersion` 2: `resume: { text, source, updatedAt } | null`, `stories` (`id`, `title`, `text`, timestamps), `samples`, `rules`; remove facts, tags, and story-to-fact links.
+- [ ] Reject version 1 files as unsupported (`STORAGE_ERROR`) with no migration and without rewriting them; delete-all still clears them.
+- [ ] Enforce the limits in PRD 15.1: résumé 15,000 code points; story title 100 and text 3,000, at most 30 stories; samples and rules as before; total profile content at most 40,000 code points, counting the new text instead of the replaced text. Reject an over-cap save with `INVALID_REQUEST` and a clear message and write nothing.
+- [ ] Keep IDs for stories, samples, and rules monotonic and never reused; keep atomic writes, locking, and permission checks.
+- [ ] Update the limits in `extension/lib/constants/limits.ts`, `helper/internal/limits/limits.go`, and `tests/protocol-fixtures/limits.json` together; remove the per-fact limits and the selection caps.
+- [ ] Add `profile.resume.set` to the protocol (both runtimes) and change the `profile.item.upsert` kinds to `story`, `sample`, `rule`; remove the old `profile.import.text` message.
+
+**Context:** `06-prd.md` sections 15.1, 16.1, 17.2; `rules/30-go-helper.md`, `rules/51-privacy-data.md`, `rules/60-testing.md`.
+
+**Exit:** Go and TypeScript tests cover the v2 round trip, v1 rejection, every limit and the 40,000 total (at, under, and over the cap), ID non-reuse, and an unchanged file after a rejected save (`AC-011`, `AC-012`).
+
+### 2B.2 Protocol, worker, and settings UI
+
+- [ ] Add the settings Résumé tab: a large editable text box with a code-point counter against 15,000, paste, and a Save button; nothing is saved until Save.
+- [ ] Add the Stories tab (title and text); keep the samples and rules editors; remove the Facts tab and the accuracy tick.
+- [ ] Update the Privacy text and the first-use disclosure to the PRD 18.1 wording (whole résumé, all stories, all samples, enabled rules; contact-detail advice).
+- [ ] Apply the PRIV-008 sensitive-text warning (email, phone, street-address patterns) to the résumé, stories, and samples, as a warning with Save anyway (decision D10).
+- [ ] Replace `panel.factCount.get` with `panel.profileStatus.get` returning only `{ hasResume, storyCount }`; add `settings.profile.resume.set`.
+- [ ] Show "Add your résumé in the extension's settings before drafting." and disable Generate draft when no résumé is saved (`AC-062`).
+
+**Context:** `06-prd.md` sections 17.1, 18, 18.1; `rules/20-frontend-extension.md`, `rules/40-design-style.md`, `rules/60-testing.md`.
+
+**Exit:** React tests cover résumé save, counter, over-cap and over-limit errors, stories CRUD, the warning with Save anyway, the no-résumé hint and disabled button, keyboard access, and error recovery; e2e covers the settings flows and the panel hint.
+
+### 2B.3 Grounded fake-provider pipeline
+
+- [x] The helper loads the whole profile, re-checks the 40,000 total, and passes the question, bounded job context, constraints, and the whole profile content to the provider; a draft with no résumé text returns `INVALID_REQUEST`.
+- [x] Change `DraftResponse` to `{ answer, evidence: [{ source, quote }], warnings }` in both runtimes and the protocol fixtures; remove `usedFacts` and `evidenceIds`.
+- [x] Update `FakeProvider` to return an answer with evidence quotes taken from the supplied résumé and stories.
+- [x] Implement quote verification in `internal/validate`: `source` is `resume` or `story:<id>`; the quote is an exact, case-sensitive excerpt of that source after collapsing whitespace, 12 to 300 code points; at least one valid quote; any invalid quote fails with `FACT_VALIDATION_FAILED` and no answer (`AC-031`, `AC-063`).
+- [x] Implement the answer checks: a number, year, percentage, or amount not in the résumé, stories, question, or job context fails with `FACT_VALIDATION_FAILED`; an unsupported capitalized multi-word name adds an `UNSUPPORTED_CLAIM` warning (`AC-032`).
+- [x] Return the verified evidence list and show "Evidence: N quotes" with the quotes in the side panel in place of "Facts used".
+- [x] Change the `FACT_VALIDATION_FAILED` entry in `tests/protocol-fixtures/errors.json` (message "The draft was not supported by your résumé and stories.", user action "Regenerate, or add the missing detail to your résumé or stories") and the TypeScript and Go tables.
+- [x] Remove `helper/internal/facts/` and all selector code, fact fixtures, and fact tests.
+- [x] Remove the unused `LOW_FACT_SUPPORT` warning code from the schemas, Go types, and fixtures (nothing produces it; PRD 16.2 and specs/05 already omit it).
+- [x] Prove a maximum-size profile is sent whole and never exceeds 40,000 code points of profile content (`AC-030`).
+
+**Context:** `05-contracts-and-invariants.md`, `06-prd.md` sections 15.2, 16.2, 17.2, 17.3; `rules/30-go-helper.md`, `rules/50-security.md`, `rules/51-privacy-data.md`, `rules/52-provider.md`.
+
+**Exit:** Fake-provider tests cover the success path with evidence and the failures (unknown source, non-excerpt quote, wrong quote length, writing-sample source, zero quotes, unsupported number, unsupported name warning, empty and over-limit answers, no résumé); no answer reaches the panel on any failure.
+
+Automated checks passed 2026-11-20 (Go tests with `-race`, Vitest, and e2e through the real helper with the fake provider). Manual acceptance is in `08-manual-test-checklist.md`, section "2B.3".
+
+### 2B.4 Résumé import (PDF spike, DOCX, review step)
+
+- [x] PDF approach decided (PRD D9): the owner decided on 2026-11-21 to use pdf.js 6.2.108 in the extension page instead of running a separate spike on a real PDF; text order, bullets, columns, and Unicode are checked by synthetic PDFs in tests and by the owner's own PDF in the manual checklist (2B.4b).
+- [x] Record the decision, evidence, and tradeoffs in a new accepted ADR before any dependency is added. (`specs/decisions/0004-pdf-resume-parsing.md`, Accepted, owner-approved 2026-11-21.)
+- [x] Implement DOCX text extraction with the Go standard library only, with file type, size, and resource limits and no use of file names as paths. (`helper/internal/importer`; done.)
+- [x] Upload transport (done for DOCX): `profile.import.document` `{ bytesBase64 }`, 190 KiB file limit inside the 256 KiB native request, settings Résumé tab file picker with the paste fallback.
+- [x] Implement the PDF path: pdf.js text extraction in the settings page (lazy-loaded, bundled worker, scripting and WASM off), text assembly, limits (5 MiB, 10 pages, 60,000 code points, 20 s), refusals with the paste fallback, source rule (`pdf`). Dependency added with the owner's explicit approval; `npm audit` clean on 2026-11-21.
+- [x] Always show extracted text in the editable résumé box; nothing is saved until Save (`AC-010`). Reject encrypted, malformed, unsupported, or oversized documents with the paste fallback. (Done for DOCX and PDF.)
+- [x] Use synthetic DOCX fixtures only in automated tests (done for DOCX; synthetic PDFs are generated in test code by `tests/support/make-pdf.ts`); evaluate the owner's real résumé only manually and locally, and never commit, log, or test with it.
+- [x] Re-run the privacy sentinel and permissions tests with imported documents; export and delete-all must cover the saved résumé. (Done for DOCX and PDF.)
+
+**Context:** `06-prd.md` sections 7.2, 15.1, 17.2, 22.2; `rules/30-go-helper.md`, `rules/50-security.md`, `rules/51-privacy-data.md`.
+
+**Status (done, automated):** DOCX and PDF import, UI, tests, ADR 0004, and the manual checklist sections (2B.4 and 2B.4b) are finished. Pending: the owner's manual PDF check (O5, checklist 2B.4b). Maintenance note: `pdfjs-dist` is pinned exactly; on any update run `npm audit`, read the pdf.js security advisories, rerun the PDF unit and e2e tests, and record the new version in ADR 0004.
+
+**Exit:** An accepted ADR names the PDF approach (or records that PDF is deferred); DOCX, malformed, oversized, Unicode, and fallback tests pass; the review-and-edit flow works with pasted, DOCX, and PDF input.
+
+### Slice 2B gate
+
+- [ ] Acceptance criteria pass: `AC-010`, `AC-011`, `AC-012`, `AC-030`, `AC-031`, `AC-032`, `AC-057`, `AC-062`, `AC-063`.
+- [ ] The Slice 2 gate (`AC-013`, `AC-014`, no profile data in content-script messages or logs) passes against the v2 profile.
+- [ ] No fact, selector, `evidenceIds`, or `usedFacts` code, fixtures, or tests remain.
+- [x] The ADR for the PDF approach is accepted and the dependency is licensed acceptably (ADR 0004; pdf.js is Apache-2.0).
+- [ ] Real personal résumé files are never committed, logged, or used in automated tests.
+- [ ] Manual check in the owner's real Chrome: save a résumé, add a story, draft with the fake provider, and see the evidence quotes.
+- [ ] Run all canonical checks (and `npm run test:e2e`, since the extension messages changed).
 
 ---
 
@@ -270,7 +367,7 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 ### 3.0 Finish the provider spikes before adapter work
 
-- [ ] Re-run the Claude Code isolation check if the CLI has updated since 2026-11-19, and observe its usage-limit and timeout behavior where it can be done safely.
+- [x] Re-run the Claude Code isolation check if the CLI has updated since 2026-11-19, and observe its usage-limit and timeout behavior where it can be done safely. (2026-11-20: version unchanged at 2.1.328, no re-run needed; the usage-limit and timeout signatures cannot be observed without burning limits, so the fallback rule stands. See ADR 0002.)
 - [ ] Owner action O1 first: install the Codex CLI and sign in. Then run the `codex exec` spike: confirm `-s read-only`, `--ephemeral`, `--ignore-user-config`, `--skip-git-repo-check`, and `--output-schema`; test whether global instructions or MCP configuration still leak in; decide between an empty working directory and a separate `CODEX_HOME` (PRD D3); record how signed-out, usage-limit, and timeout states appear, including `codex login status`.
 - [ ] Record the Codex flags and findings in ADR 0002. If Codex cannot be isolated, mark that adapter unsupported.
 
@@ -278,55 +375,55 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 ### 3.1 Implement provider diagnostics and abstraction
 
-- [ ] Finalize the narrow Go `Provider` interface and keep `FakeProvider` for tests.
-- [ ] Detect executable presence and classify unauthenticated, unavailable, usage-limit, timeout, cancellation, and generic failures without reading credentials.
-- [ ] Return canonical typed errors with one safe user action.
-- [ ] Add a settings diagnostic that does not automate login.
+- [x] Finalize the narrow Go `Provider` interface and keep `FakeProvider` for tests.
+- [x] Detect executable presence and classify unauthenticated, unavailable, usage-limit, timeout, cancellation, and generic failures without reading credentials.
+- [x] Return canonical typed errors with one safe user action.
+- [x] Add a settings diagnostic that does not automate login.
 
-**Exit:** Fake-executable tests produce every required provider error deterministically.
+**Exit:** Fake-executable tests produce every required provider error deterministically. (Claude only; the Codex adapter is an unsupported stub until the owner installs Codex.)
 
 ### 3.2 Build the isolated prompt and response contract
 
-- [ ] Separate product rules, verified facts, question, job context, and constraints into explicit prompt sections.
-- [ ] Label page-derived content as untrusted reference text.
-- [ ] Require a strict structure containing `answer`, `evidenceIds`, and `warnings`.
-- [ ] Request omission rather than inference when facts are insufficient.
-- [ ] Add golden tests for prompt boundaries and injection-like job text.
+- [x] Separate product rules, the whole profile (résumé, stories, samples, rules, each in its own labeled section), question, job context, and constraints into explicit prompt sections.
+- [x] Label page-derived content (job description, selected text) as untrusted reference text.
+- [x] Require a strict structure containing `answer`, `evidence` (`source` and `quote`), and `warnings`; tell the model that writing samples and rules are style guidance and never evidence.
+- [x] Request omission rather than inference when the résumé and stories are insufficient.
+- [x] Add golden tests for prompt boundaries and injection-like job text.
 
-**Exit:** Prompt tests prove untrusted content cannot become provider configuration and contain only selected facts.
+**Exit:** Prompt tests prove untrusted content cannot become provider configuration and that the prompt contains only the question, bounded job context, the profile content within the 40,000 code-point cap, and constraints.
 
 ### 3.3 Invoke provider CLIs safely
 
-- [ ] Use `exec.CommandContext` with supported noninteractive mode and stdin.
-- [ ] Use a private empty working directory and a controlled environment.
-- [ ] Disable tools, MCP servers, hooks, skills, and session persistence using supported CLI configuration for each adapter (flags confirmed by the 3.0 spike).
-- [ ] Bound request size, output size, duration, and cancellation.
-- [ ] Capture only the output required for parsing; sanitize all errors.
+- [x] Use `exec.CommandContext` with supported noninteractive mode and stdin.
+- [x] Use a private empty working directory and a controlled environment.
+- [x] Disable tools, MCP servers, hooks, skills, and session persistence using supported CLI configuration for each adapter (flags confirmed by the 3.0 spike).
+- [x] Bound request size, output size, duration, and cancellation.
+- [x] Capture only the output required for parsing; sanitize all errors.
 
 **Exit:** Fake `claude` and `codex` executables verify exact arguments, stdin, environment filtering, timeout, cancellation, and bounded output without a shell.
 
 ### 3.4 Validate factual output
 
-- [ ] Strictly parse the provider response.
-- [ ] Validate every evidence ID against the selected fact set.
-- [ ] Enforce word/character limits and prohibited-question categories.
-- [ ] Reject unsupported metrics, dates, employers, titles, or technologies when deterministic validation can identify them.
-- [ ] Return warnings without treating them as proof.
+- [x] Strictly parse the provider response.
+- [x] Reuse the helper's quote and number checks from step 2B.3 (every evidence quote an exact excerpt of the résumé or a cited story, at least one valid quote, numbers, years, percentages, and amounts present in the user's text, the question, or the job context) on real provider output; do not add a second validator.
+- [x] Enforce word/character limits. (Prohibited-question categories are not enforced here: PRD 15.2 runs that detection locally in the extension before any request, and plan step 4.1 builds it. Until 4.1, nothing blocks a prohibited question from reaching the provider.)
+- [x] Warn about unsupported capitalized names without treating the warning as proof.
+- [x] Return warnings without treating them as proof.
 
-**Exit:** Malformed, unsupported, over-limit, and unknown-evidence fixtures fail before the answer reaches the UI.
+**Exit:** Malformed, unsupported, over-limit, and invalid-quote fixtures fail before the answer reaches the UI. (Done 2026-11-20: host tests run the real `claude.Provider` over a fake executable for every bad output.)
 
 ### 3.5 Integrate the side-panel generation states
 
-- [ ] Replace the production fake provider with the selected adapter (Claude Code or Codex) while preserving dependency injection in tests; add a provider choice to settings with no default, and block drafting until one is chosen.
-- [ ] Show generating, cancellation, success, warning, and typed error states.
-- [ ] Preserve edited question and context after failure.
-- [ ] Disclose provider data transmission and retention boundary before first use.
+- [x] Replace the production fake provider with the selected adapter (Claude Code or Codex) while preserving dependency injection in tests; add a provider choice to settings with no default, and block drafting until one is chosen.
+- [x] Show generating, cancellation, success, warning, and typed error states.
+- [x] Preserve edited question and context after failure.
+- [x] Disclose provider data transmission and retention boundary before first use.
 
-**Exit:** A manual private test generates one real draft; automated tests remain fully deterministic with fake executables.
+**Exit:** A manual private test generates one real draft (owner action, `specs/08-manual-test-checklist.md` section "3.4/3.5 — real drafting with Claude"; AC-061 stays open until then); automated tests remain fully deterministic with fake executables. (Code and automated tests done 2026-11-20.)
 
 ### Slice 3 gate
 
-- [ ] Acceptance criteria pass: `AC-003`, `AC-004`, `AC-005`, `AC-032`, `AC-033`, `AC-034`, `AC-035`, `AC-036`, `AC-051`, `AC-053`, `AC-054`, `AC-056`, and manual `AC-061`.
+- [ ] Acceptance criteria pass: `AC-003`, `AC-004`, `AC-005`, `AC-033`, `AC-034`, `AC-035`, `AC-036`, `AC-051`, `AC-053`, `AC-054`, `AC-056`, and manual `AC-061` (`AC-032` is gated in Slice 2B and re-exercised through the shared validator here).
 - [ ] The provider cannot access app files, tools, skills, MCP, hooks, or session history through app configuration.
 - [ ] No raw prompt/output appears in logs or errors.
 - [ ] Run all canonical checks and record the one manual provider test separately.
@@ -414,7 +511,7 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 - [ ] Implement Regenerate, Make shorter, and Make more direct as new provider requests.
 - [ ] Send the current user-edited draft only when the specific refinement needs it and disclose that behavior in the UI.
-- [ ] Apply the same fact, length, injection, and output validation to every refinement.
+- [ ] Apply the same grounding (quote and number), length, injection, and output validation to every refinement.
 - [ ] Never insert automatically after refinement.
 
 **Exit:** Each refinement has deterministic provider tests and preserves the explicit Insert boundary.
@@ -437,53 +534,14 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 ---
 
-## Slice 6 — Résumé Import and Profile Completion (optional; may be deferred)
+## Slice 6 — Résumé Import and Profile Completion (merged into Slice 2B)
 
-**Outcome:** The user can import PDF/DOCX/pasted résumé text, confirm extraction, and approve atomic verified facts without silently trusting parser or model output.
+**Status:** Merged into [Slice 2B](#slice-2b--résumé-and-stories-profile) step 2B.4 by ADR 0003 on 2026-11-20. Do no separate work here.
 
-**Requirements:** `FR-010`, `FR-011`, `FR-014`, `FR-015`, `PRIV-001`, `PRIV-002`, `PRIV-003`, `PRIV-004`, `PRIV-005`, `PRIV-006`, `PRIV-007`.
-
-### 6.1 Run a parser selection spike
-
-- [ ] Create synthetic PDF and DOCX fixtures plus a private, uncommitted manual corpus covering common résumé layouts.
-- [ ] Evaluate candidate Go-compatible parsers for text order, bullets, columns, Unicode, licensing, maintenance, binary size, and failure behavior.
-- [ ] Require graceful fallback to pasted text.
-- [ ] Record the selected parser(s), evidence, and tradeoffs in a new accepted ADR before adding dependencies.
-
-**Exit:** ADR names the chosen parser strategy and documents corpus results; no parser is selected by familiarity alone.
-
-### 6.2 Implement safe extraction
-
-- [ ] Validate file type, size, path handling, and parser resource limits.
-- [ ] Extract in the Go helper and return text for confirmation without marking it verified.
-- [ ] Reject encrypted, malformed, unsupported, or low-confidence documents with paste fallback.
-- [ ] Keep fixtures synthetic and logs free of document content.
-
-**Exit:** PDF, DOCX, malformed, oversized, Unicode, and fallback tests pass.
-
-### 6.3 Convert confirmed text into candidate facts
-
-- [ ] Use deterministic bullet/paragraph segmentation to propose fact cards; do not use a model for initial ingestion.
-- [ ] Let the user edit, merge, split, accept, or discard candidates.
-- [ ] Assign evidence IDs only after explicit acceptance.
-- [ ] Preserve the source type without retaining unnecessary document artifacts.
-
-**Exit:** No extracted sentence becomes a verified fact without user action; accepted facts participate in Slice 3 drafting.
-
-### 6.4 Complete profile lifecycle
-
-- [ ] Ensure export includes the versioned profile and source metadata but not transient drafts/job context.
-- [ ] Ensure delete-all removes imported text, facts, stories, samples, rules, and app-created temporary data.
-- [ ] Re-run privacy sentinel and permissions tests with imported documents.
-
-**Exit:** Import → confirm → approve facts → draft → export/delete works end to end.
-
-### Slice 6 gate
-
-- [ ] Acceptance criteria pass: `AC-010` (deferred together with this slice if it is deferred).
-- [ ] Parser dependency decision is documented and licensed acceptably.
-- [ ] Real personal résumé files are never committed or used in automated tests.
-- [ ] Run all canonical checks.
+- Old 6.1 (parser selection spike and ADR) and 6.2 (safe extraction) are step 2B.4, with the decision recorded as PRD D9.
+- Old 6.3 (convert confirmed text into candidate facts) is removed: there are no facts, and the résumé is one reviewed text.
+- Old 6.4 (export and delete-all with imported content) is covered by step 2B.4 and the existing export and delete-all.
+- `AC-010` is gated in Slice 2B. Old requirements `FR-010`, `FR-011` move to Slice 2B; `FR-014` is rewritten as résumé review and save.
 
 ---
 
@@ -583,42 +641,43 @@ Gate passed on 2026-11-20: all canonical checks pass (631 Vitest tests, 45 e2e t
 
 ## Requirement Traceability
 
-| Requirement group                          | Primary slice                                  |
-| ------------------------------------------ | ---------------------------------------------- |
-| `FR-001`–`FR-004` installation/diagnostics | Slice 7 (extension key pinned in Slice 0)      |
-| `FR-005` provider selection                | Slice 3                                        |
-| `FR-010`–`FR-011` document import          | Slice 6                                        |
-| `FR-012`–`FR-016` profile                  | Slice 2; import completion in Slice 6          |
-| `FR-020`–`FR-022` capture                  | Slice 1                                        |
-| `FR-023` prohibited prompts                | Slice 4                                        |
-| `FR-030`–`FR-032` basic targeting          | Slice 1                                        |
-| `FR-033`–`FR-034` ambiguity/staleness      | Slice 4                                        |
-| `FR-040`–`FR-043` job context              | Slice 5                                        |
-| `FR-050`–`FR-054` generation               | Slice 3                                        |
-| `FR-055`–`FR-056` refinements              | Slice 5                                        |
-| `FR-060`–`FR-063` review/approval          | Slice 1                                        |
-| `FR-064`–`FR-069` safe insertion           | Slice 4; baseline in Slice 1                   |
-| `FR-070`–`FR-074` errors/recovery          | Slices 1–5; final audit in Slice 8             |
-| `SEC-001`–`SEC-008`                        | Built into every slice; final audit in Slice 8 |
-| `PRIV-001`–`PRIV-007`                      | Slices 2, 3, and 6; final audit in Slice 8     |
-| `UX-001`–`UX-006`                          | Applied throughout; completion in Slice 5      |
-| `COMP-001`–`COMP-005`                      | Slices 0, 4, and 8                             |
+| Requirement group                          | Primary slice                                                  |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `FR-001`–`FR-004` installation/diagnostics | Slice 7 (extension key pinned in Slice 0)                      |
+| `FR-005` provider selection                | Slice 3                                                        |
+| `FR-010`–`FR-011` résumé input and review  | Slice 2B (paste first, DOCX and PDF in 2B.4)                   |
+| `FR-012`–`FR-016` profile                  | Slice 2 (export, delete); Slice 2B (résumé, stories, `FR-014`) |
+| `FR-020`–`FR-022` capture                  | Slice 1                                                        |
+| `FR-023` prohibited prompts                | Slice 4                                                        |
+| `FR-030`–`FR-032` basic targeting          | Slice 1                                                        |
+| `FR-033`–`FR-034` ambiguity/staleness      | Slice 4                                                        |
+| `FR-040`–`FR-043` job context              | Slice 5                                                        |
+| `FR-050`–`FR-054` generation               | Slice 3; whole-profile prompt and grounding in Slice 2B        |
+| `FR-055`–`FR-056` refinements              | Slice 5                                                        |
+| `FR-060`–`FR-063` review/approval          | Slice 1                                                        |
+| `FR-064`–`FR-069` safe insertion           | Slice 4; baseline in Slice 1                                   |
+| `FR-070`–`FR-074` errors/recovery          | Slices 1–5; final audit in Slice 8                             |
+| `SEC-001`–`SEC-008`                        | Built into every slice; final audit in Slice 8                 |
+| `PRIV-001`–`PRIV-008`                      | Slices 2, 2B, and 3; final audit in Slice 8                    |
+| `UX-001`–`UX-006`                          | Applied throughout; completion in Slice 5                      |
+| `COMP-001`–`COMP-005`                      | Slices 0, 4, and 8                                             |
 
 ## Acceptance-criteria traceability
 
 Every criterion in `06-prd.md` section 21 is gated in exactly one slice.
 
-| Slice | Criteria                                                                                                                         |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | `AC-052`                                                                                                                         |
-| 1     | `AC-020`, `AC-021`, `AC-040`, `AC-041`, `AC-045`, `AC-050`                                                                       |
-| 2     | `AC-011`, `AC-012`, `AC-013`, `AC-014`, `AC-030`, `AC-031`, `AC-057`                                                             |
-| 3     | `AC-003`, `AC-004`, `AC-005`, `AC-032`, `AC-033`, `AC-034`, `AC-035`, `AC-036`, `AC-051`, `AC-053`, `AC-054`, `AC-056`, `AC-061` |
-| 4     | `AC-022`, `AC-023`, `AC-024`, `AC-042`, `AC-043`, `AC-044`, `AC-046`, `AC-047`                                                   |
-| 5     | `AC-037`                                                                                                                         |
-| 6     | `AC-010`                                                                                                                         |
-| 7     | `AC-001`, `AC-002`                                                                                                               |
-| 8     | `AC-055`, `AC-060`                                                                                                               |
+| Slice | Criteria                                                                                                               |
+| ----- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0     | `AC-052`                                                                                                               |
+| 1     | `AC-020`, `AC-021`, `AC-040`, `AC-041`, `AC-045`, `AC-050`                                                             |
+| 2     | `AC-013`, `AC-014`                                                                                                     |
+| 2B    | `AC-010`, `AC-011`, `AC-012`, `AC-030`, `AC-031`, `AC-032`, `AC-057`, `AC-062`, `AC-063`                               |
+| 3     | `AC-003`, `AC-004`, `AC-005`, `AC-033`, `AC-034`, `AC-035`, `AC-036`, `AC-051`, `AC-053`, `AC-054`, `AC-056`, `AC-061` |
+| 4     | `AC-022`, `AC-023`, `AC-024`, `AC-042`, `AC-043`, `AC-044`, `AC-046`, `AC-047`                                         |
+| 5     | `AC-037`                                                                                                               |
+| 6     | none (merged into Slice 2B)                                                                                            |
+| 7     | `AC-001`, `AC-002`                                                                                                     |
+| 8     | `AC-055`, `AC-060`                                                                                                     |
 
 ## Intentionally deferred beyond this plan
 

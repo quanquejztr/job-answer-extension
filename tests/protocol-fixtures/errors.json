@@ -102,9 +102,9 @@
   },
   {
     "code": "FACT_VALIDATION_FAILED",
-    "message": "The draft was not supported by your verified facts.",
+    "message": "The draft was not supported by your résumé and stories.",
     "retryable": true,
-    "userAction": "Regenerate or add the missing fact"
+    "userAction": "Regenerate, or add the missing detail to your résumé or stories"
   },
   {
     "code": "STORAGE_ERROR",

@@ -27,6 +27,18 @@ func TestLimitsMatchFixture(t *testing.T) {
 		"maxMaxWords":            MaxMaxWords,
 		"maxCurrentDraftChars":   MaxCurrentDraftChars,
 		"maxWarningMessageChars": MaxWarningMessageChars,
+		"maxStoryChars":          MaxStoryChars,
+		"maxSampleChars":         MaxSampleChars,
+		"maxRuleChars":           MaxRuleChars,
+		"maxRules":               MaxRules,
+		"maxSamples":             MaxSamples,
+		"maxTitleChars":          MaxTitleChars,
+		"maxLabelChars":          MaxLabelChars,
+		"maxStories":             MaxStories,
+		"maxProfileBytes":        MaxProfileBytes,
+		"maxResumeChars":         MaxResumeChars,
+		"maxProfileTotalChars":   MaxProfileTotalChars,
+		"maxDocxFileBytes":       MaxDocxFileBytes,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("fixture has %d keys, want %d", len(got), len(want))
@@ -42,5 +54,24 @@ func TestLimitsMatchFixture(t *testing.T) {
 		ProviderTimeoutSeconds != 90 || TargetLifetimeSeconds != 600 ||
 		MinMaxWords != 20 || MaxMaxWords != 400 || MaxCurrentDraftChars != 4000 || MaxWarningMessageChars != 200 {
 		t.Fatal("Go limits constants changed")
+	}
+	profile := map[string]int{
+		"maxResumeChars":       15000,
+		"maxStoryChars":        3000,
+		"maxSampleChars":       3000,
+		"maxRuleChars":         200,
+		"maxRules":             20,
+		"maxSamples":           5,
+		"maxTitleChars":        100,
+		"maxLabelChars":        60,
+		"maxStories":           30,
+		"maxProfileTotalChars": 40000,
+		"maxProfileBytes":      393216,
+		"maxDocxFileBytes":     194560,
+	}
+	for k, v := range profile {
+		if want[k] != v {
+			t.Errorf("profile limit %s changed: %d", k, want[k])
+		}
 	}
 }

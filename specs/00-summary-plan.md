@@ -12,7 +12,7 @@ The product is an assisted writing tool, not an autonomous application agent.
 2. The user right-clicks and chooses **Draft answer**.
 3. The extension captures the selected question and identifies only its nearby free-response field.
 4. The extension extracts the job description when it can do so confidently; otherwise the user can paste or edit it.
-5. The local Go helper selects relevant verified profile facts and invokes the user's installed Claude Code or Codex CLI, signed in with the user's own subscription.
+5. The local Go helper loads the user's profile (résumé, stories, writing samples, and rules) and invokes the user's installed Claude Code or Codex CLI, signed in with the user's own subscription. The helper verifies that the draft is supported by the résumé and stories before showing it.
 6. The draft appears in the side panel.
 7. The user reviews and may edit, regenerate, shorten, or make the answer more direct.
 8. The user clicks **Insert answer**.
@@ -25,7 +25,7 @@ Version one supports:
 
 - One question and one free-response field at a time.
 - Standard `textarea` elements and supported multiline `contenteditable` editors.
-- A local profile built from a résumé, project stories, writing samples, and explicit writing rules.
+- A local profile built from one résumé text, behavioral stories, writing samples, and explicit writing rules ([ADR 0003](decisions/0003-resume-and-stories-profile.md)).
 - Job-description extraction with manual paste/edit fallback.
 - User review and editing before insertion.
 - A private, locally installed macOS and Chrome prototype.
@@ -54,11 +54,12 @@ The execution-level sequence, work packets, gates, and requirement traceability 
 
 ### Phase 2: Profile setup
 
-- Accept PDF, DOCX, or pasted résumé text.
-- Show extracted text for user confirmation.
-- Store verified facts with stable IDs.
-- Collect project stories, writing examples, and explicit answer rules.
+- Accept pasted résumé text first, then DOCX upload (read by the helper) and PDF upload (pdf.js in the settings page, ADR 0004; only the extracted text reaches the helper).
+- Always show the extracted text in an editable box; nothing is saved until the user clicks Save.
+- Store one résumé text, plus behavioral stories with stable IDs.
+- Collect writing examples and explicit answer rules.
 - Provide local export and delete-all-data actions.
+- Steps 2.1 to 2.4 delivered a fact model and keyword fact selection; Slice 2B replaces them (ADR 0003).
 
 ### Phase 3: Capture and targeting
 
@@ -70,10 +71,10 @@ The execution-level sequence, work packets, gates, and requirement traceability 
 
 ### Phase 4: Draft generation
 
-- Send only the question, relevant job context, relevant verified facts, and writing constraints.
+- Send only the question, bounded job context, the user's profile content within the 40,000 code-point cap, and writing constraints.
 - Invoke the provider CLI (Claude Code or Codex) without a shell, tools, MCP servers, hooks, skills, or persistent sessions.
-- Require structured output with evidence IDs and warnings.
-- Validate length, evidence IDs, and unsupported factual claims.
+- Require structured output with an answer, evidence quotes, and warnings.
+- Validate length, that every evidence quote is an exact excerpt of the résumé or a cited story, and that numbers, years, percentages, and amounts in the answer appear in the user's text, the question, or the job context.
 
 ### Phase 5: Review and insertion
 

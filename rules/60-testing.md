@@ -13,7 +13,7 @@ Cover pure functions and contracts:
 - Field-candidate scoring and ambiguity thresholds.
 - Fingerprint comparison and expiry.
 - Zod/protocol validation.
-- Fact selection and evidence validation.
+- Evidence quote verification, number and name checks, and the 40,000 code-point profile cap.
 - Length and writing-rule validation.
 - Error mapping.
 
@@ -63,7 +63,7 @@ Never run automated tests against or submit real employer applications.
 - A job description containing prompt-injection instructions cannot alter provider permissions or protocol behavior.
 - HTML/script-like provider output is displayed as text.
 - Unknown origins, frames, message types, versions, and oversized payloads are rejected.
-- The content script never receives profile facts or résumé text.
+- The content script never receives résumé text, stories, samples, or rules.
 - Logs and errors do not contain supplied sensitive sentinel strings.
 - Insertion changes exactly one intended field.
 - No click, navigation, file upload, selection, save, apply, or submit event occurs.
